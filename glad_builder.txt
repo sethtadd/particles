@@ -1,1 +1,0 @@
-python -m glad --out-path out --api gl:core=4.5 c --loader
