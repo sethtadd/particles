@@ -1,0 +1,1 @@
+g++ -o particles particles.cpp Shader.cpp glad/gl.c -lGL -lglfw && ./particles
