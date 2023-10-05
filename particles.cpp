@@ -45,7 +45,7 @@ int main()
 
     glViewport(0, 0, WIDTH, HEIGHT);
 
-    Shader shader("shaders/particles.vertex.glsl", "shaders/particles.fragment.glsl");
+    Shader shader("shaders/particles.vertex.glsl", "shaders/particles.geometry.glsl", "shaders/particles.fragment.glsl");
 
     float vertices[] = {
         0.0f, 0.0f, 0.0f,      // Position (x, y, z)
@@ -121,6 +121,9 @@ int main()
     // Unbind particleVbo and vao
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     while (!glfwWindowShouldClose(window))
     {

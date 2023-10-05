@@ -12,7 +12,7 @@
 class Shader
 {
 public:
-    Shader(const char *vertexPath, const char *fragmentPath); // Constructor: Read in shader code files and build shader program
+    Shader(const char *vertexPath, const char *geometryPath, const char *fragmentPath); // Constructor: Read in shader code files and build shader program
 
     void use(); // Tells the OpenGL state machine to use (this)Shader
 
@@ -29,10 +29,7 @@ public:
     void setDouble(const std::string &name, double value) const;
 
 private:
-    unsigned int ID; // Shader program ID for referencing object stored on video card
-
-    unsigned int vertexShader;   // Fragment shader ID
-    unsigned int fragmentShader; // Fragment shader ID
+    unsigned int shaderProgramId; // Shader program ID for referencing object stored on video card
 
     // Error handling fields
     int success;
