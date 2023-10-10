@@ -1,4 +1,4 @@
-#include "glad/gl.h" // Include first to avoid errors
+#include <glad/gl.h> // Include first to avoid errors
 #include <GLFW/glfw3.h>
 #include <cstdio>
 #include "Shader.hpp"
@@ -170,7 +170,8 @@ void handleInput(GLFWwindow *window)
 
 void mouse_callback(GLFWwindow *window, double xPos, double yPos)
 {
-    printf("Mouse position: (%f, %f)\n", xPos, yPos);
+    // TODO Implement
+    // printf("Mouse position: (%f, %f)\n", xPos, yPos);
 }
 
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
