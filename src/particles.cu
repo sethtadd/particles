@@ -176,11 +176,11 @@ int main()
     cudaGraphicsGLRegisterBuffer(&cuda_position_offsets_vbo_resource, instancePositionOffsetsVbo, cudaGraphicsMapFlagsWriteDiscard);
 
     glEnable(GL_BLEND);
-    glBlendFunc(GL_DST_COLOR, GL_ZERO);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     while (!glfwWindowShouldClose(window))
     {
-        glClearColor(0.533f, 0.438f, 0.723f, 1.0f);
+        glClearColor(0.15f, 0.15f, 0.15f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         // Map instanceInitialPositionsVbo to CUDA
