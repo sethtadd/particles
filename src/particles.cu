@@ -4,6 +4,9 @@
 #include <glad/gl.h> // Include first to avoid errors
 #include <GLFW/glfw3.h>
 
+#include <cuda_runtime.h>
+#include <cuda_gl_interop.h>
+
 #include "Shader.hpp"
 #include "CudaKernels.hpp"
 
@@ -18,6 +21,16 @@ void handleInput(GLFWwindow *window);
 void mouse_callback(GLFWwindow *window, double xPos, double yPos);               // Mouse movement
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset);        // Zooming in/out
 void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight); // Handle window resizing
+
+__global__ void updateParticles(float3 *d_instanceData, int numParticles, float time)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < numParticles)
+    {
+        d_instanceData[i].x += cos(2 * time + i) * 0.005f;
+        d_instanceData[i].y += sin(2 * time + i) * 0.005f;
+    }
+}
 
 int main()
 {
@@ -127,17 +140,41 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    // Register instanceVbo with CUDA
+    cudaGraphicsResource *cuda_vbo_resource;
+    cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, instanceVbo, cudaGraphicsMapFlagsWriteDiscard);
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     while (!glfwWindowShouldClose(window))
     {
-        glClearColor(0.53332607f, 0.4382106f, 0.72355703f, 1.0f);
+        glClearColor(0.533f, 0.438f, 0.723f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        shader.use();
+        // Map instanceVbo to CUDA
+        float3 *d_instanceData;
+        cudaGraphicsMapResources(1, &cuda_vbo_resource, 0);
+        size_t num_bytes;
+        cudaGraphicsResourceGetMappedPointer((void **)&d_instanceData, &num_bytes, cuda_vbo_resource);
+
+        // Update particles
+        int threadsPerBlock = 256;
+        int blocksPerGrid = (numParticles + threadsPerBlock - 1) / threadsPerBlock;
+        updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_instanceData, numParticles, glfwGetTime());
+        cudaError_t err = cudaDeviceSynchronize();
+        err = cudaDeviceSynchronize(); // Blocks execution until kernel is finished
+        if (err != cudaSuccess)
+        {
+            fprintf(stderr, "Failed to synchronize on the CUDA device (error code %s)!\n", cudaGetErrorString(err));
+            exit(EXIT_FAILURE);
+        }
+
+        // Unmap instanceVbo from CUDA (so OpenGL can use it)
+        cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);
 
         // Draw particles
+        shader.use();
         glBindVertexArray(vao);
         glDrawArraysInstanced(
             GL_POINTS,     // mode: type of primitives to render
@@ -151,29 +188,8 @@ int main()
         glfwPollEvents();
     }
 
-    // CUDA test after glfw termination
-    // --------------------------------
-    std::cout << " ----- CUDA test ----- " << std::endl;
-
-    const int numElements = 15;
-
-    std::vector<float> A(numElements);
-    std::vector<float> B(numElements);
-    std::vector<float> C(numElements);
-
-    // Initialize host memory with random data
-    for (int i = 0; i < numElements; i++)
-    {
-        A[i] = rand() / (float)RAND_MAX;
-        B[i] = rand() / (float)RAND_MAX;
-    }
-    runVectorAdd(A.data(), B.data(), C.data(), numElements);
-    for (int i = 0; i < numElements; ++i)
-    {
-        std::cout << A[i] << " + " << B[i] << " = " << C[i] << std::endl;
-    }
-
     // Clean up
+    cudaGraphicsUnregisterResource(cuda_vbo_resource);
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &particleVbo);
     glDeleteBuffers(1, &instanceVbo);
