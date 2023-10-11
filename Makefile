@@ -5,7 +5,7 @@ CXXFLAGS = -Iinclude -Wall  # C++ Compiler flags
 NVCCFLAGS = -Iinclude  # CUDA Compiler flags
 LDFLAGS = -lglfw -lGL -lcudart -L/usr/local/cuda/lib64  # Linker flags and required libraries
 BIN = bin/particles  # Binary output location
-CXX_OBJ = build/particles.o build/Shader.o build/gl.o  # C++ Object files
+CXX_OBJ = build/particles.cu.o build/Shader.o build/gl.o  # C++ Object files
 CU_OBJ = build/CudaKernels.cu.o  # CUDA Object files
 
 # Phony targets
@@ -19,8 +19,8 @@ $(BIN): $(CXX_OBJ) $(CU_OBJ)
 	$(CXX) $^ -o $@ $(LDFLAGS)
 
 # Compilation
-build/particles.o: src/particles.cpp
-	$(CXX) $(CXXFLAGS) -c src/particles.cpp -o build/particles.o
+build/particles.cu.o: src/particles.cu
+	$(NVCC) $(NVCCFLAGS) -c $^ -o build/particles.cu.o
 
 build/Shader.o: src/Shader.cpp include/Shader.hpp
 	$(CXX) $(CXXFLAGS) -c src/Shader.cpp -o build/Shader.o
