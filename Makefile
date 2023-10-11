@@ -1,9 +1,12 @@
 # Variables
-CXX = g++                                          # Compiler
-CXXFLAGS = -Iinclude -Wall                         # Compiler flags
-LDFLAGS = -lglfw -lGL                              # Linker flags, add required libraries here
-BIN = bin/particles                                # Binary output location
-OBJ = build/particles.o build/Shader.o build/gl.o  # Object files
+CXX = g++  # C++ Compiler
+NVCC = nvcc  # CUDA Compiler
+CXXFLAGS = -Iinclude -Wall  # C++ Compiler flags
+NVCCFLAGS = -Iinclude  # CUDA Compiler flags
+LDFLAGS = -lglfw -lGL -lcudart -L/usr/local/cuda/lib64  # Linker flags and required libraries
+BIN = bin/particles  # Binary output location
+CXX_OBJ = build/particles.o build/Shader.o build/gl.o  # C++ Object files
+CU_OBJ = build/CudaKernels.cu.o  # CUDA Object files
 
 # Phony targets
 .PHONY: all run clean
@@ -12,8 +15,8 @@ OBJ = build/particles.o build/Shader.o build/gl.o  # Object files
 all: $(BIN)
 
 # Linking
-$(BIN): $(OBJ)
-	$(CXX) $(OBJ) -o $(BIN) $(LDFLAGS)
+$(BIN): $(CXX_OBJ) $(CU_OBJ)
+	$(CXX) $^ -o $@ $(LDFLAGS)
 
 # Compilation
 build/particles.o: src/particles.cpp
@@ -25,10 +28,13 @@ build/Shader.o: src/Shader.cpp include/Shader.hpp
 build/gl.o: include/glad/gl.c include/glad/gl.h
 	$(CXX) $(CXXFLAGS) -c include/glad/gl.c -o build/gl.o
 
+build/CudaKernels.cu.o: src/CudaKernels.cu
+	$(NVCC) $(NVCCFLAGS) -c src/CudaKernels.cu -o build/CudaKernels.cu.o
+
 # Run
 run: $(BIN)
 	./$(BIN)
 
 # Clean
 clean:
-	rm -f build/*.o $(BIN)
+	rm -f build/*.o build/*.cu.o $(BIN)

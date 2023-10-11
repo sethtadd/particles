@@ -1,7 +1,12 @@
+#include <iostream>
+#include <cstdio>
+#include <vector>
+
 #include <glad/gl.h> // Include first to avoid errors
 #include <GLFW/glfw3.h>
-#include <cstdio>
+
 #include "Shader.hpp"
+#include "CudaKernels.hpp"
 
 const uint WIDTH = 828;
 const uint HEIGHT = 512;
@@ -144,6 +149,28 @@ int main()
         handleInput(window);
         glfwSwapBuffers(window);
         glfwPollEvents();
+    }
+
+    // CUDA test after glfw termination
+    // --------------------------------
+    std::cout << " ----- CUDA test ----- " << std::endl;
+
+    const int numElements = 15;
+
+    std::vector<float> A(numElements);
+    std::vector<float> B(numElements);
+    std::vector<float> C(numElements);
+
+    // Initialize host memory with random data
+    for (int i = 0; i < numElements; i++)
+    {
+        A[i] = rand() / (float)RAND_MAX;
+        B[i] = rand() / (float)RAND_MAX;
+    }
+    runVectorAdd(A.data(), B.data(), C.data(), numElements);
+    for (int i = 0; i < numElements; ++i)
+    {
+        std::cout << A[i] << " + " << B[i] << " = " << C[i] << std::endl;
     }
 
     // Clean up
