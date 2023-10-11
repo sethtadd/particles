@@ -27,8 +27,9 @@ __global__ void updateParticles(float3 *d_instanceData, int numParticles, float 
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < numParticles)
     {
-        d_instanceData[i].x += cos(2 * time + i) * 0.005f;
-        d_instanceData[i].y += sin(2 * time + i) * 0.005f;
+        float rotationSpeed = 1 + (i % 10);
+        d_instanceData[i].x += cos(rotationSpeed * time + i) * 0.005f;
+        d_instanceData[i].y += sin(rotationSpeed * time + i) * 0.005f;
     }
 }
 
@@ -38,7 +39,7 @@ int main()
     if (!glfwInit())
         return -1;
 
-    GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "Hello World", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "Taro Root Boba Tea", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -71,13 +72,17 @@ int main()
     };
 
     // Particle offsets
-    float instanceData[] = {
-        0.5f, 0.5f, 0.0f,   // Top right
-        0.5f, -0.5f, 0.0f,  // Bottom right
-        -0.5f, -0.5f, 0.0f, // Bottom left
-        -0.5f, 0.5f, 0.0f   // Top left
-    };
-    int numParticles = sizeof(instanceData) / (3 * sizeof(float));
+    uint numParticles = 100000;
+    std::vector<float3> instanceData;
+    for (int i = 0; i < numParticles; i++)
+    {
+        float3 position = make_float3(
+            (float)rand() / RAND_MAX - 0.5f, // x
+            (float)rand() / RAND_MAX - 0.5f, // y
+            0.0f);                           // z
+        instanceData.push_back(position);
+    }
+
     std::cout << "Particle count: " << numParticles << std::endl;
 
     // Instance particles VAO
@@ -120,10 +125,10 @@ int main()
     glGenBuffers(1, &instanceVbo);
     glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
     glBufferData(
-        GL_ARRAY_BUFFER,      // target
-        sizeof(instanceData), // size
-        instanceData,         // data
-        GL_STATIC_DRAW);      // usage
+        GL_ARRAY_BUFFER,               // target
+        numParticles * sizeof(float3), // size
+        instanceData.data(),           // data
+        GL_STATIC_DRAW);               // usage
 
     // Offset attribute
     glVertexAttribPointer(
@@ -145,7 +150,7 @@ int main()
     cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, instanceVbo, cudaGraphicsMapFlagsWriteDiscard);
 
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_DST_COLOR, GL_ZERO);
 
     while (!glfwWindowShouldClose(window))
     {
