@@ -1,5 +1,4 @@
 #include <iostream>
-#include <cstdio>
 #include <vector>
 
 #include <glad/gl.h> // Include first to avoid errors
@@ -44,9 +43,10 @@ int main()
     int version = gladLoadGL(glfwGetProcAddress);
 
     // Print version info
-    printf("GLAD2 GL version: %d.%d\n", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
-    printf("OpenGL version: %s\n", glGetString(GL_VERSION));
-    printf("Renderer: %s\n", glGetString(GL_RENDERER));
+    std::cout << "GLAD2 GL version: " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version) << std::endl;
+    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
+    std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
+    std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
 
     glViewport(0, 0, WIDTH, HEIGHT);
 
@@ -65,7 +65,7 @@ int main()
         -0.5f, 0.5f, 0.0f   // Top left
     };
     int numParticles = sizeof(instanceData) / (3 * sizeof(float));
-    printf("Particle count: %d\n", numParticles);
+    std::cout << "Particle count: " << numParticles << std::endl;
 
     // Instance particles VAO
     GLuint vao;
@@ -183,7 +183,7 @@ int main()
 
 void glfwErrorCallback(int error, const char *description)
 {
-    fprintf(stderr, "GLFW Error: %d - %s\n", error, description);
+    std::cerr << "GLFW Error: " << error << " - " << description << std::endl;
 }
 
 void handleInput(GLFWwindow *window)
@@ -198,12 +198,12 @@ void handleInput(GLFWwindow *window)
 void mouse_callback(GLFWwindow *window, double xPos, double yPos)
 {
     // TODO Implement
-    // printf("Mouse position: (%f, %f)\n", xPos, yPos);
+    // std::cout << "Mouse position: (" << xPos << ", " << yPos << ")" << std::endl;
 }
 
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
 {
-    printf("Scroll offset: (%f, %f)\n", xOffset, yOffset);
+    std::cout << "Scroll offset: (" << xOffset << ", " << yOffset << ")" << std::endl;
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight)

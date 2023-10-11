@@ -1,7 +1,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <cstdio>
+#include <iostream>
 
 #include <glad/gl.h>
 #include <glm/glm.hpp>
@@ -54,7 +54,7 @@ Shader::Shader(const char *vertexPath, const char *geometryPath, const char *fra
     }
     catch (std::ifstream::failure &e)
     {
-        fprintf(stderr, "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: %s\n", e.what());
+        std::cerr << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " << e.what() << std::endl;
     }
 
     // Send string buffers' content to char*'s as c_strings
@@ -71,7 +71,8 @@ Shader::Shader(const char *vertexPath, const char *geometryPath, const char *fra
     if (!success)
     {
         glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        printf("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n%s\n", infoLog);
+        std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"
+                  << infoLog << std::endl;
     }
 
     // ---------- Geometry Shader ---------- //
@@ -83,7 +84,8 @@ Shader::Shader(const char *vertexPath, const char *geometryPath, const char *fra
     if (!success)
     {
         glGetShaderInfoLog(geometryShader, 512, NULL, infoLog);
-        printf("ERROR::SHADER::GEOMETRY::COMPILATION_FAILED\n%s\n", infoLog);
+        std::cerr << "ERROR::SHADER::GEOMETRY::COMPILATION_FAILED\n"
+                  << infoLog << std::endl;
     }
 
     // ---------- Fragment Shader ---------- //
@@ -95,7 +97,8 @@ Shader::Shader(const char *vertexPath, const char *geometryPath, const char *fra
     if (!success)
     {
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        printf("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n%s\n", infoLog);
+        std::cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n"
+                  << infoLog << std::endl;
     }
 
     // ---------- Shader Program ---------- //
@@ -110,7 +113,8 @@ Shader::Shader(const char *vertexPath, const char *geometryPath, const char *fra
     if (!success)
     {
         glGetProgramInfoLog(shaderProgramId, 512, NULL, infoLog);
-        printf("ERROR::SHADER::PROGRAM::LINKING_FAILED\n%s\n", infoLog);
+        std::cerr << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
+                  << infoLog << std::endl;
     }
 
     // Clean up
