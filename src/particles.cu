@@ -22,14 +22,13 @@ void mouse_callback(GLFWwindow *window, double xPos, double yPos);              
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset);        // Zooming in/out
 void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight); // Handle window resizing
 
-__global__ void updateParticles(float3 *d_initialPositionsInstanceData, float3 *d_positionOffsetsInstanceData, int numParticles, float time)
+__global__ void updateParticles(float3 *d_instancePositions, float3 *d_instanceVelocities, int numParticles, float time)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < numParticles)
     {
-        float rotationSpeed = (1 + (i % 10)) * 0.06f;
-        d_positionOffsetsInstanceData[i].x = cos(rotationSpeed * time + i) * 0.45f;
-        d_positionOffsetsInstanceData[i].y = sin(rotationSpeed * time + i) * 0.45f;
+        d_instancePositions[i].x += cos(time + i) * 0.004f;
+        d_instancePositions[i].y += sin(time + i) * 0.004f;
     }
 }
 
@@ -67,7 +66,7 @@ int main()
     Shader shader("shaders/particles.vertex.glsl", "shaders/particles.geometry.glsl", "shaders/particles.fragment.glsl");
 
     // Singular particle vertex data
-    float vertices[] = {
+    float particleVertex[] = {
         1.0f, 1.0f, 1.0f, 1.0f // Color (r, g, b, a)
     };
 
@@ -75,41 +74,41 @@ int main()
     std::cout << "Particle count: " << numParticles << std::endl;
 
     // Particle initial positions
-    std::vector<float3> instanceInitialPositionsData;
+    std::vector<float3> instancePositionData;
     for (int i = 0; i < numParticles; i++)
     {
         float3 position = make_float3(
             (float)rand() / RAND_MAX - 0.5f, // x
             (float)rand() / RAND_MAX - 0.5f, // y
             0.0f);                           // z
-        instanceInitialPositionsData.push_back(position);
+        instancePositionData.push_back(position);
     }
 
     // Particle position offsets
-    std::vector<float3> instancePositionOffsetsData;
+    std::vector<float3> instanceVelocityData;
     for (int i = 0; i < numParticles; i++)
     {
         float3 position = make_float3(
             (float)rand() / RAND_MAX - 0.5f, // x
             (float)rand() / RAND_MAX - 0.5f, // y
             0.0f);                           // z
-        instancePositionOffsetsData.push_back(position);
+        instanceVelocityData.push_back(position);
     }
 
-    // Instance particles VAO
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+    // Particle VAO (for instanced rendering)
+    GLuint particleVao;
+    glGenVertexArrays(1, &particleVao);
+    glBindVertexArray(particleVao);
 
     // Singular particle vertex data
     GLuint particleVbo;
     glGenBuffers(1, &particleVbo);
     glBindBuffer(GL_ARRAY_BUFFER, particleVbo);
     glBufferData(
-        GL_ARRAY_BUFFER,  // target
-        sizeof(vertices), // size
-        vertices,         // data
-        GL_STATIC_DRAW);  // usage
+        GL_ARRAY_BUFFER,        // target
+        sizeof(particleVertex), // size
+        particleVertex,         // data
+        GL_STATIC_DRAW);        // usage
 
     // Color attribute
     glVertexAttribPointer(
@@ -121,15 +120,15 @@ int main()
         (void *)0); // pointer
     glEnableVertexAttribArray(0);
 
-    // Instance initial position data
-    GLuint instanceInitialPositionsVbo;
-    glGenBuffers(1, &instanceInitialPositionsVbo);
-    glBindBuffer(GL_ARRAY_BUFFER, instanceInitialPositionsVbo);
+    // Instance positions
+    GLuint instancePositionsVbo;
+    glGenBuffers(1, &instancePositionsVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, instancePositionsVbo);
     glBufferData(
-        GL_ARRAY_BUFFER,                     // target
-        numParticles * sizeof(float3),       // size
-        instanceInitialPositionsData.data(), // data
-        GL_STATIC_DRAW);                     // usage
+        GL_ARRAY_BUFFER,               // target
+        numParticles * sizeof(float3), // size
+        instancePositionData.data(),   // data
+        GL_STATIC_DRAW);               // usage
 
     // Position attribute
     glVertexAttribPointer(
@@ -142,17 +141,17 @@ int main()
     glEnableVertexAttribArray(1);
     glVertexAttribDivisor(1, 1); // Update attribute every 1 instance
 
-    // Instance position offset data
-    GLuint instancePositionOffsetsVbo;
-    glGenBuffers(1, &instancePositionOffsetsVbo);
-    glBindBuffer(GL_ARRAY_BUFFER, instancePositionOffsetsVbo);
+    // Instance velocities
+    GLuint instanceVelocitiesVbo;
+    glGenBuffers(1, &instanceVelocitiesVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVelocitiesVbo);
     glBufferData(
-        GL_ARRAY_BUFFER,                    // target
-        numParticles * sizeof(float3),      // size
-        instancePositionOffsetsData.data(), // data
-        GL_STATIC_DRAW);                    // usage
+        GL_ARRAY_BUFFER,               // target
+        numParticles * sizeof(float3), // size
+        instanceVelocityData.data(),   // data
+        GL_STATIC_DRAW);               // usage
 
-    // Offset attribute
+    // Velocity attribute
     glVertexAttribPointer(
         2,                 // index
         3,                 // size
@@ -163,17 +162,14 @@ int main()
     glEnableVertexAttribArray(2);
     glVertexAttribDivisor(2, 1); // Update attribute every 1 instance
 
-    // Unbind particleVbo and vao
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind VBO
+    glBindVertexArray(0);             // Unbind VAO
 
-    // Register instanceInitialPositionsVbo with CUDA
-    cudaGraphicsResource *cuda_initial_positions_vbo_resource;
-    cudaGraphicsGLRegisterBuffer(&cuda_initial_positions_vbo_resource, instanceInitialPositionsVbo, cudaGraphicsMapFlagsWriteDiscard);
-
-    // Register instancePositionOffsetsVbo with CUDA
-    cudaGraphicsResource *cuda_position_offsets_vbo_resource;
-    cudaGraphicsGLRegisterBuffer(&cuda_position_offsets_vbo_resource, instancePositionOffsetsVbo, cudaGraphicsMapFlagsWriteDiscard);
+    // Register instance VBOs with CUDA
+    cudaGraphicsResource *cuda_positions_vbo_resource;
+    cudaGraphicsResource *cuda_velocities_vbo_resource;
+    cudaGraphicsGLRegisterBuffer(&cuda_positions_vbo_resource, instancePositionsVbo, cudaGraphicsMapFlagsWriteDiscard);
+    cudaGraphicsGLRegisterBuffer(&cuda_velocities_vbo_resource, instanceVelocitiesVbo, cudaGraphicsMapFlagsWriteDiscard);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -183,37 +179,33 @@ int main()
         glClearColor(0.15f, 0.15f, 0.15f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Map instanceInitialPositionsVbo to CUDA
-        float3 *d_initialPositionsInstanceData;
-        cudaGraphicsMapResources(1, &cuda_initial_positions_vbo_resource, 0);
-        size_t num_bytes;
-        cudaGraphicsResourceGetMappedPointer((void **)&d_initialPositionsInstanceData, &num_bytes, cuda_initial_positions_vbo_resource);
-
-        // Map instanceInitialPositionsVbo to CUDA
-        float3 *d_positionOffsetsInstanceData;
-        cudaGraphicsMapResources(1, &cuda_position_offsets_vbo_resource, 0);
-        // size_t num_bytes;
-        cudaGraphicsResourceGetMappedPointer((void **)&d_positionOffsetsInstanceData, &num_bytes, cuda_position_offsets_vbo_resource);
+        // Map instance VBOs to CUDA on device
+        float3 *d_instancePositions;
+        float3 *d_instanceVelocities;
+        cudaGraphicsMapResources(1, &cuda_positions_vbo_resource, 0);
+        cudaGraphicsMapResources(1, &cuda_velocities_vbo_resource, 0);
+        cudaGraphicsResourceGetMappedPointer((void **)&d_instancePositions, nullptr, cuda_positions_vbo_resource);
+        cudaGraphicsResourceGetMappedPointer((void **)&d_instanceVelocities, nullptr, cuda_velocities_vbo_resource);
 
         // Update particles
         int threadsPerBlock = 256;
         int blocksPerGrid = (numParticles + threadsPerBlock - 1) / threadsPerBlock;
-        updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_initialPositionsInstanceData, d_positionOffsetsInstanceData, numParticles, glfwGetTime());
+        updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_instancePositions, d_instanceVelocities, numParticles, glfwGetTime());
         cudaError_t err = cudaDeviceSynchronize();
         err = cudaDeviceSynchronize(); // Blocks execution until kernel is finished
         if (err != cudaSuccess)
         {
-            fprintf(stderr, "Failed to synchronize on the CUDA device (error code %s)!\n", cudaGetErrorString(err));
+            std::cerr << "Failed to synchronize on the CUDA device (error code " << cudaGetErrorString(err) << ")!" << std::endl;
             exit(EXIT_FAILURE);
         }
 
-        // Unmap instanceInitialPositionsVbo from CUDA (so OpenGL can use it)
-        cudaGraphicsUnmapResources(1, &cuda_initial_positions_vbo_resource, 0);
-        cudaGraphicsUnmapResources(1, &cuda_position_offsets_vbo_resource, 0);
+        // Unmap instance VBO data from CUDA (so OpenGL can use it)
+        cudaGraphicsUnmapResources(1, &cuda_positions_vbo_resource, 0);
+        cudaGraphicsUnmapResources(1, &cuda_velocities_vbo_resource, 0);
 
         // Draw particles
         shader.use();
-        glBindVertexArray(vao);
+        glBindVertexArray(particleVao);
         glDrawArraysInstanced(
             GL_POINTS,     // mode: type of primitives to render
             0,             // first: starting index
@@ -227,12 +219,12 @@ int main()
     }
 
     // Clean up
-    cudaGraphicsUnregisterResource(cuda_initial_positions_vbo_resource);
-    cudaGraphicsUnregisterResource(cuda_position_offsets_vbo_resource);
-    glDeleteVertexArrays(1, &vao);
+    cudaGraphicsUnregisterResource(cuda_positions_vbo_resource);
+    cudaGraphicsUnregisterResource(cuda_velocities_vbo_resource);
+    glDeleteVertexArrays(1, &particleVao);
     glDeleteBuffers(1, &particleVbo);
-    glDeleteBuffers(1, &instanceInitialPositionsVbo);
-    glDeleteBuffers(1, &instancePositionOffsetsVbo);
+    glDeleteBuffers(1, &instancePositionsVbo);
+    glDeleteBuffers(1, &instanceVelocitiesVbo);
     glfwTerminate();
     return 0;
 }
