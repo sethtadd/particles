@@ -22,14 +22,14 @@ void mouse_callback(GLFWwindow *window, double xPos, double yPos);              
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset);        // Zooming in/out
 void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight); // Handle window resizing
 
-__global__ void updateParticles(float3 *d_instanceData, int numParticles, float time)
+__global__ void updateParticles(float3 *d_initialPositionsInstanceData, float3 *d_positionOffsetsInstanceData, int numParticles, float time)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < numParticles)
     {
-        float rotationSpeed = 1 + (i % 10);
-        d_instanceData[i].x += cos(rotationSpeed * time + i) * 0.005f;
-        d_instanceData[i].y += sin(rotationSpeed * time + i) * 0.005f;
+        float rotationSpeed = (1 + (i % 10)) * 0.06f;
+        d_positionOffsetsInstanceData[i].x = cos(rotationSpeed * time + i) * 0.45f;
+        d_positionOffsetsInstanceData[i].y = sin(rotationSpeed * time + i) * 0.45f;
     }
 }
 
@@ -39,7 +39,7 @@ int main()
     if (!glfwInit())
         return -1;
 
-    GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "Taro Root Boba Tea", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "CUDA Particles", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -66,24 +66,35 @@ int main()
 
     Shader shader("shaders/particles.vertex.glsl", "shaders/particles.geometry.glsl", "shaders/particles.fragment.glsl");
 
+    // Singular particle vertex data
     float vertices[] = {
-        0.0f, 0.0f, 0.0f,      // Position (x, y, z)
         1.0f, 1.0f, 1.0f, 1.0f // Color (r, g, b, a)
     };
 
-    // Particle offsets
-    uint numParticles = 100000;
-    std::vector<float3> instanceData;
+    uint numParticles = 50000;
+    std::cout << "Particle count: " << numParticles << std::endl;
+
+    // Particle initial positions
+    std::vector<float3> instanceInitialPositionsData;
     for (int i = 0; i < numParticles; i++)
     {
         float3 position = make_float3(
             (float)rand() / RAND_MAX - 0.5f, // x
             (float)rand() / RAND_MAX - 0.5f, // y
             0.0f);                           // z
-        instanceData.push_back(position);
+        instanceInitialPositionsData.push_back(position);
     }
 
-    std::cout << "Particle count: " << numParticles << std::endl;
+    // Particle position offsets
+    std::vector<float3> instancePositionOffsetsData;
+    for (int i = 0; i < numParticles; i++)
+    {
+        float3 position = make_float3(
+            (float)rand() / RAND_MAX - 0.5f, // x
+            (float)rand() / RAND_MAX - 0.5f, // y
+            0.0f);                           // z
+        instancePositionOffsetsData.push_back(position);
+    }
 
     // Instance particles VAO
     GLuint vao;
@@ -100,35 +111,46 @@ int main()
         vertices,         // data
         GL_STATIC_DRAW);  // usage
 
-    // Position attribute
+    // Color attribute
     glVertexAttribPointer(
         0,          // index
-        3,          // size
+        4,          // size
         GL_FLOAT,   // type
         GL_FALSE,   // normalized
         0,          // stride
         (void *)0); // pointer
     glEnableVertexAttribArray(0);
 
-    // Color attribute
-    glVertexAttribPointer(
-        1,                            // index
-        4,                            // size
-        GL_FLOAT,                     // type
-        GL_FALSE,                     // normalized
-        0,                            // stride
-        (void *)(3 * sizeof(float))); // pointer
-    glEnableVertexAttribArray(1);
-
-    // Instance data
-    GLuint instanceVbo;
-    glGenBuffers(1, &instanceVbo);
-    glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
+    // Instance initial position data
+    GLuint instanceInitialPositionsVbo;
+    glGenBuffers(1, &instanceInitialPositionsVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceInitialPositionsVbo);
     glBufferData(
-        GL_ARRAY_BUFFER,               // target
-        numParticles * sizeof(float3), // size
-        instanceData.data(),           // data
-        GL_STATIC_DRAW);               // usage
+        GL_ARRAY_BUFFER,                     // target
+        numParticles * sizeof(float3),       // size
+        instanceInitialPositionsData.data(), // data
+        GL_STATIC_DRAW);                     // usage
+
+    // Position attribute
+    glVertexAttribPointer(
+        1,                 // index
+        3,                 // size
+        GL_FLOAT,          // type
+        GL_FALSE,          // normalized
+        3 * sizeof(float), // stride
+        (void *)0);        // pointer
+    glEnableVertexAttribArray(1);
+    glVertexAttribDivisor(1, 1); // Update attribute every 1 instance
+
+    // Instance position offset data
+    GLuint instancePositionOffsetsVbo;
+    glGenBuffers(1, &instancePositionOffsetsVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, instancePositionOffsetsVbo);
+    glBufferData(
+        GL_ARRAY_BUFFER,                    // target
+        numParticles * sizeof(float3),      // size
+        instancePositionOffsetsData.data(), // data
+        GL_STATIC_DRAW);                    // usage
 
     // Offset attribute
     glVertexAttribPointer(
@@ -145,9 +167,13 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    // Register instanceVbo with CUDA
-    cudaGraphicsResource *cuda_vbo_resource;
-    cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, instanceVbo, cudaGraphicsMapFlagsWriteDiscard);
+    // Register instanceInitialPositionsVbo with CUDA
+    cudaGraphicsResource *cuda_initial_positions_vbo_resource;
+    cudaGraphicsGLRegisterBuffer(&cuda_initial_positions_vbo_resource, instanceInitialPositionsVbo, cudaGraphicsMapFlagsWriteDiscard);
+
+    // Register instancePositionOffsetsVbo with CUDA
+    cudaGraphicsResource *cuda_position_offsets_vbo_resource;
+    cudaGraphicsGLRegisterBuffer(&cuda_position_offsets_vbo_resource, instancePositionOffsetsVbo, cudaGraphicsMapFlagsWriteDiscard);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_DST_COLOR, GL_ZERO);
@@ -157,16 +183,22 @@ int main()
         glClearColor(0.533f, 0.438f, 0.723f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Map instanceVbo to CUDA
-        float3 *d_instanceData;
-        cudaGraphicsMapResources(1, &cuda_vbo_resource, 0);
+        // Map instanceInitialPositionsVbo to CUDA
+        float3 *d_initialPositionsInstanceData;
+        cudaGraphicsMapResources(1, &cuda_initial_positions_vbo_resource, 0);
         size_t num_bytes;
-        cudaGraphicsResourceGetMappedPointer((void **)&d_instanceData, &num_bytes, cuda_vbo_resource);
+        cudaGraphicsResourceGetMappedPointer((void **)&d_initialPositionsInstanceData, &num_bytes, cuda_initial_positions_vbo_resource);
+
+        // Map instanceInitialPositionsVbo to CUDA
+        float3 *d_positionOffsetsInstanceData;
+        cudaGraphicsMapResources(1, &cuda_position_offsets_vbo_resource, 0);
+        // size_t num_bytes;
+        cudaGraphicsResourceGetMappedPointer((void **)&d_positionOffsetsInstanceData, &num_bytes, cuda_position_offsets_vbo_resource);
 
         // Update particles
         int threadsPerBlock = 256;
         int blocksPerGrid = (numParticles + threadsPerBlock - 1) / threadsPerBlock;
-        updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_instanceData, numParticles, glfwGetTime());
+        updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_initialPositionsInstanceData, d_positionOffsetsInstanceData, numParticles, glfwGetTime());
         cudaError_t err = cudaDeviceSynchronize();
         err = cudaDeviceSynchronize(); // Blocks execution until kernel is finished
         if (err != cudaSuccess)
@@ -175,8 +207,9 @@ int main()
             exit(EXIT_FAILURE);
         }
 
-        // Unmap instanceVbo from CUDA (so OpenGL can use it)
-        cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);
+        // Unmap instanceInitialPositionsVbo from CUDA (so OpenGL can use it)
+        cudaGraphicsUnmapResources(1, &cuda_initial_positions_vbo_resource, 0);
+        cudaGraphicsUnmapResources(1, &cuda_position_offsets_vbo_resource, 0);
 
         // Draw particles
         shader.use();
@@ -194,10 +227,12 @@ int main()
     }
 
     // Clean up
-    cudaGraphicsUnregisterResource(cuda_vbo_resource);
+    cudaGraphicsUnregisterResource(cuda_initial_positions_vbo_resource);
+    cudaGraphicsUnregisterResource(cuda_position_offsets_vbo_resource);
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &particleVbo);
-    glDeleteBuffers(1, &instanceVbo);
+    glDeleteBuffers(1, &instanceInitialPositionsVbo);
+    glDeleteBuffers(1, &instancePositionOffsetsVbo);
     glfwTerminate();
     return 0;
 }
