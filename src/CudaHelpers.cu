@@ -1,0 +1,37 @@
+#include <stdio.h>
+#include "CudaHelpers.cuh"
+
+__device__ float3 operator*(float3 a, float b)
+{
+    return make_float3(a.x * b, a.y * b, a.z * b);
+}
+
+__device__ float3 operator/(float3 a, float b)
+{
+    return make_float3(a.x / b, a.y / b, a.z / b);
+}
+
+__device__ float3 operator+(float3 a, float3 b)
+{
+    return make_float3(a.x + b.x, a.y + b.y, a.z + b.z);
+}
+
+__device__ float3 operator-(float3 a, float3 b)
+{
+    return make_float3(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+__device__ float norm(float3 a)
+{
+    return sqrtf(a.x * a.x + a.y * a.y + a.z * a.z);
+}
+
+__device__ float3 normalize(float3 a)
+{
+    return a / norm(a);
+}
+
+__device__ float operator*(float3 a, float3 b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}

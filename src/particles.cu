@@ -8,7 +8,7 @@
 #include <cuda_gl_interop.h>
 
 #include "Shader.hpp"
-#include "CudaKernels.hpp"
+#include "CudaHelpers.cuh"
 
 const uint WIDTH = 828;
 const uint HEIGHT = 512;
@@ -27,8 +27,8 @@ __global__ void updateParticles(float3 *d_instancePositions, float3 *d_instanceV
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < numParticles)
     {
-        d_instancePositions[i].x += cos(time + i) * 0.004f;
-        d_instancePositions[i].y += sin(time + i) * 0.004f;
+        d_instancePositions[i].x += cos(time + i % 10) * 0.004f;
+        d_instancePositions[i].y += sin(time + i % 10) * 0.004f;
     }
 }
 
