@@ -104,11 +104,6 @@ int main()
 
     Shader shader("shaders/particles.vertex.glsl", "shaders/particles.geometry.glsl", "shaders/particles.fragment.glsl");
 
-    // Singular particle vertex data
-    float particleVertex[] = {
-        1.0f, 1.0f, 1.0f, 1.0f // Color (r, g, b, a)
-    };
-
     uint numParticles = 50000;
     std::cout << "Particle count: " << numParticles << std::endl;
 
@@ -151,26 +146,6 @@ int main()
     glGenVertexArrays(1, &particleVao);
     glBindVertexArray(particleVao);
 
-    // Singular particle vertex data
-    GLuint particleVbo;
-    glGenBuffers(1, &particleVbo);
-    glBindBuffer(GL_ARRAY_BUFFER, particleVbo);
-    glBufferData(
-        GL_ARRAY_BUFFER,        // target
-        sizeof(particleVertex), // size
-        particleVertex,         // data
-        GL_STATIC_DRAW);        // usage
-
-    // Color attribute
-    glVertexAttribPointer(
-        0,          // index
-        4,          // size
-        GL_FLOAT,   // type
-        GL_FALSE,   // normalized
-        0,          // stride
-        (void *)0); // pointer
-    glEnableVertexAttribArray(0);
-
     // Instance positions
     GLuint instancePositionsVbo;
     glGenBuffers(1, &instancePositionsVbo);
@@ -183,14 +158,14 @@ int main()
 
     // Position attribute
     glVertexAttribPointer(
-        1,                 // index
+        0,                 // index
         3,                 // size
         GL_FLOAT,          // type
         GL_FALSE,          // normalized
         3 * sizeof(float), // stride
         (void *)0);        // pointer
-    glEnableVertexAttribArray(1);
-    glVertexAttribDivisor(1, 1); // Update attribute every 1 instance
+    glEnableVertexAttribArray(0);
+    glVertexAttribDivisor(0, 1); // Update attribute every 1 instance
 
     // Instance velocities
     GLuint instanceVelocitiesVbo;
@@ -204,14 +179,14 @@ int main()
 
     // Velocity attribute
     glVertexAttribPointer(
-        2,                 // index
+        1,                 // index
         3,                 // size
         GL_FLOAT,          // type
         GL_FALSE,          // normalized
         3 * sizeof(float), // stride
         (void *)0);        // pointer
-    glEnableVertexAttribArray(2);
-    glVertexAttribDivisor(2, 1); // Update attribute every 1 instance
+    glEnableVertexAttribArray(1);
+    glVertexAttribDivisor(1, 1); // Update attribute every 1 instance
 
     // Instance colors
     GLuint instanceColorsVbo;
@@ -225,14 +200,14 @@ int main()
 
     // Color attribute
     glVertexAttribPointer(
-        3,                 // index
+        2,                 // index
         4,                 // size
         GL_FLOAT,          // type
         GL_FALSE,          // normalized
         4 * sizeof(float), // stride
         (void *)0);        // pointer
-    glEnableVertexAttribArray(3);
-    glVertexAttribDivisor(3, 1); // Update attribute every 1 instance
+    glEnableVertexAttribArray(2);
+    glVertexAttribDivisor(2, 1); // Update attribute every 1 instance
 
     glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind VBO
     glBindVertexArray(0);             // Unbind VAO
@@ -301,7 +276,6 @@ int main()
     cudaGraphicsUnregisterResource(cuda_velocities_vbo_resource);
     cudaGraphicsUnregisterResource(cuda_colors_vbo_resource);
     glDeleteVertexArrays(1, &particleVao);
-    glDeleteBuffers(1, &particleVbo);
     glDeleteBuffers(1, &instancePositionsVbo);
     glDeleteBuffers(1, &instanceVelocitiesVbo);
     glfwTerminate();
