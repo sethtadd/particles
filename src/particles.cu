@@ -10,8 +10,8 @@
 #include "Shader.hpp"
 #include "CudaHelpers.cuh"
 
-const uint WIDTH = 828;
-const uint HEIGHT = 512;
+const uint WIDTH = 1024;
+const uint HEIGHT = 1024;
 
 void glfwErrorCallback(int error, const char *description);
 
@@ -22,13 +22,52 @@ void mouse_callback(GLFWwindow *window, double xPos, double yPos);              
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset);        // Zooming in/out
 void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight); // Handle window resizing
 
-__global__ void updateParticles(float3 *d_instancePositions, float3 *d_instanceVelocities, int numParticles, float time)
+__global__ void updateParticles(float3 *d_instancePositions, float3 *d_instanceVelocities, float4 *d_instanceColors, int numParticles, float time)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < numParticles)
     {
-        d_instancePositions[i].x += cos(time + i % 10) * 0.004f;
-        d_instancePositions[i].y += sin(time + i % 10) * 0.004f;
+        d_instancePositions[i].x += d_instanceVelocities[i].x;
+        d_instancePositions[i].y += d_instanceVelocities[i].y;
+
+        if (d_instancePositions[i].x > 1.0f)
+        {
+            d_instancePositions[i].x = 1.0f;
+            d_instanceVelocities[i].x *= -1.0f;
+        }
+        else if (d_instancePositions[i].x < -1.0f)
+        {
+            d_instancePositions[i].x = -1.0f;
+            d_instanceVelocities[i].x *= -1.0f;
+        }
+
+        if (d_instancePositions[i].y > 1.0f)
+        {
+            d_instancePositions[i].y = 1.0f;
+            d_instanceVelocities[i].y *= -1.0f;
+        }
+        else if (d_instancePositions[i].y < -1.0f)
+        {
+            d_instancePositions[i].y = -1.0f;
+            d_instanceVelocities[i].y *= -1.0f;
+        }
+
+        // Get max velocity
+        float maxVelocity = 0.0f;
+        for (int j = 0; j < numParticles; ++j)
+        {
+            if (norm(d_instanceVelocities[i]) > maxVelocity)
+            {
+                maxVelocity = norm(d_instanceVelocities[i]);
+            }
+        }
+
+        d_instanceColors[i] = make_float4(
+            // norm(d_instanceVelocities[i]) / maxVelocity, // r
+            (d_instancePositions[i].x + 1.0) / 2.0, // r
+            1.0f,                     // g
+            1.0f,                     // b
+            1.0f);                    // a
     }
 }
 
@@ -73,7 +112,7 @@ int main()
     uint numParticles = 50000;
     std::cout << "Particle count: " << numParticles << std::endl;
 
-    // Particle initial positions
+    // Particle positions
     std::vector<float3> instancePositionData;
     for (int i = 0; i < numParticles; i++)
     {
@@ -84,15 +123,27 @@ int main()
         instancePositionData.push_back(position);
     }
 
-    // Particle position offsets
+    // Particle velocities
     std::vector<float3> instanceVelocityData;
     for (int i = 0; i < numParticles; i++)
     {
-        float3 position = make_float3(
-            (float)rand() / RAND_MAX - 0.5f, // x
-            (float)rand() / RAND_MAX - 0.5f, // y
-            0.0f);                           // z
-        instanceVelocityData.push_back(position);
+        float3 velocity = make_float3(
+            (2.0f * rand() / RAND_MAX - 1.0f) * 0.005f, // x
+            (2.0f * rand() / RAND_MAX - 1.0f) * 0.005f, // y
+            0.0f);                                      // z
+        instanceVelocityData.push_back(velocity);
+    }
+
+    // Particle colors
+    std::vector<float4> instanceColorData;
+    for (int i = 0; i < numParticles; i++)
+    {
+        float4 color = make_float4(
+            (2.0f * rand() / RAND_MAX - 1.0f) * 0.005f, // r
+            (2.0f * rand() / RAND_MAX - 1.0f) * 0.005f, // g
+            (2.0f * rand() / RAND_MAX - 1.0f) * 0.005f, // b
+            1.0f);                                      // a
+        instanceColorData.push_back(color);
     }
 
     // Particle VAO (for instanced rendering)
@@ -162,14 +213,37 @@ int main()
     glEnableVertexAttribArray(2);
     glVertexAttribDivisor(2, 1); // Update attribute every 1 instance
 
+    // Instance colors
+    GLuint instanceColorsVbo;
+    glGenBuffers(1, &instanceColorsVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceColorsVbo);
+    glBufferData(
+        GL_ARRAY_BUFFER,               // target
+        numParticles * sizeof(float4), // size
+        instanceColorData.data(),      // data
+        GL_STATIC_DRAW);               // usage
+
+    // Color attribute
+    glVertexAttribPointer(
+        3,                 // index
+        4,                 // size
+        GL_FLOAT,          // type
+        GL_FALSE,          // normalized
+        4 * sizeof(float), // stride
+        (void *)0);        // pointer
+    glEnableVertexAttribArray(3);
+    glVertexAttribDivisor(3, 1); // Update attribute every 1 instance
+
     glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind VBO
     glBindVertexArray(0);             // Unbind VAO
 
     // Register instance VBOs with CUDA
     cudaGraphicsResource *cuda_positions_vbo_resource;
     cudaGraphicsResource *cuda_velocities_vbo_resource;
+    cudaGraphicsResource *cuda_colors_vbo_resource;
     cudaGraphicsGLRegisterBuffer(&cuda_positions_vbo_resource, instancePositionsVbo, cudaGraphicsMapFlagsWriteDiscard);
     cudaGraphicsGLRegisterBuffer(&cuda_velocities_vbo_resource, instanceVelocitiesVbo, cudaGraphicsMapFlagsWriteDiscard);
+    cudaGraphicsGLRegisterBuffer(&cuda_colors_vbo_resource, instanceColorsVbo, cudaGraphicsMapFlagsWriteDiscard);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -182,15 +256,18 @@ int main()
         // Map instance VBOs to CUDA on device
         float3 *d_instancePositions;
         float3 *d_instanceVelocities;
+        float4 *d_instanceColors;
         cudaGraphicsMapResources(1, &cuda_positions_vbo_resource, 0);
         cudaGraphicsMapResources(1, &cuda_velocities_vbo_resource, 0);
+        cudaGraphicsMapResources(1, &cuda_colors_vbo_resource, 0);
         cudaGraphicsResourceGetMappedPointer((void **)&d_instancePositions, nullptr, cuda_positions_vbo_resource);
         cudaGraphicsResourceGetMappedPointer((void **)&d_instanceVelocities, nullptr, cuda_velocities_vbo_resource);
+        cudaGraphicsResourceGetMappedPointer((void **)&d_instanceColors, nullptr, cuda_colors_vbo_resource);
 
         // Update particles
         int threadsPerBlock = 256;
         int blocksPerGrid = (numParticles + threadsPerBlock - 1) / threadsPerBlock;
-        updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_instancePositions, d_instanceVelocities, numParticles, glfwGetTime());
+        updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_instancePositions, d_instanceVelocities, d_instanceColors, numParticles, glfwGetTime());
         cudaError_t err = cudaDeviceSynchronize();
         err = cudaDeviceSynchronize(); // Blocks execution until kernel is finished
         if (err != cudaSuccess)
@@ -202,6 +279,7 @@ int main()
         // Unmap instance VBO data from CUDA (so OpenGL can use it)
         cudaGraphicsUnmapResources(1, &cuda_positions_vbo_resource, 0);
         cudaGraphicsUnmapResources(1, &cuda_velocities_vbo_resource, 0);
+        cudaGraphicsUnmapResources(1, &cuda_colors_vbo_resource, 0);
 
         // Draw particles
         shader.use();
@@ -221,6 +299,7 @@ int main()
     // Clean up
     cudaGraphicsUnregisterResource(cuda_positions_vbo_resource);
     cudaGraphicsUnregisterResource(cuda_velocities_vbo_resource);
+    cudaGraphicsUnregisterResource(cuda_colors_vbo_resource);
     glDeleteVertexArrays(1, &particleVao);
     glDeleteBuffers(1, &particleVbo);
     glDeleteBuffers(1, &instancePositionsVbo);

@@ -21,9 +21,19 @@ __device__ float3 operator-(float3 a, float3 b)
     return make_float3(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
+__device__ float norm(float2 a)
+{
+    return sqrtf(a.x * a.x + a.y * a.y);
+}
+
 __device__ float norm(float3 a)
 {
     return sqrtf(a.x * a.x + a.y * a.y + a.z * a.z);
+}
+
+__device__ float norm(float4 a)
+{
+    return sqrtf(a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w);
 }
 
 __device__ float3 normalize(float3 a)
