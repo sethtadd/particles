@@ -19,4 +19,6 @@ __device__ float3 normalize(float3 a);
 
 __device__ float operator*(float3 a, float3 b);
 
+__device__ float smoothstep(float a, float b, float x);
+
 #endif // CUDA_HELPERS_HPP

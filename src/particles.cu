@@ -52,22 +52,27 @@ __global__ void updateParticles(float3 *d_instancePositions, float3 *d_instanceV
             d_instanceVelocities[i].y *= -1.0f;
         }
 
-        // Get max velocity
+        // Get min/max velocities
         float maxVelocity = 0.0f;
+        float minVelocity = 0.0f;
         for (int j = 0; j < numParticles; ++j)
         {
-            if (norm(d_instanceVelocities[i]) > maxVelocity)
-            {
-                maxVelocity = norm(d_instanceVelocities[i]);
-            }
+            float velocity = norm(d_instanceVelocities[j]);
+            if (velocity > maxVelocity)
+                maxVelocity = velocity;
+            else if (velocity < minVelocity)
+                minVelocity = velocity;
         }
 
+        // Normalize velocity to [0, 1]
+        float v = (norm(d_instanceVelocities[i]) - minVelocity) / (maxVelocity - minVelocity);
+        v = smoothstep(0.0f, 1.0f, v);
+
         d_instanceColors[i] = make_float4(
-            // norm(d_instanceVelocities[i]) / maxVelocity, // r
-            (d_instancePositions[i].x + 1.0) / 2.0, // r
-            1.0f,                     // g
-            1.0f,                     // b
-            1.0f);                    // a
+            v,        // r
+            0.5f,     // g
+            1.0f - v, // b
+            1.0f);    // a
     }
 }
 
@@ -104,7 +109,7 @@ int main()
 
     Shader shader("shaders/particles.vertex.glsl", "shaders/particles.geometry.glsl", "shaders/particles.fragment.glsl");
 
-    uint numParticles = 50000;
+    uint numParticles = 500;
     std::cout << "Particle count: " << numParticles << std::endl;
 
     // Particle positions
@@ -225,7 +230,7 @@ int main()
 
     while (!glfwWindowShouldClose(window))
     {
-        glClearColor(0.15f, 0.15f, 0.15f, 1.0f);
+        glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         // Map instance VBOs to CUDA on device

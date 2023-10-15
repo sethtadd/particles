@@ -45,3 +45,10 @@ __device__ float operator*(float3 a, float3 b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
+
+__device__ float smoothstep(float a, float b, float x)
+{
+    float t = (x - a) / (b - a);
+    t = fmaxf(0.0f, fminf(1.0f, t));
+    return t * t * (3.0f - 2.0f * t);
+}
