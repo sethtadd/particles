@@ -7,8 +7,9 @@
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 
-#include "Shader.hpp"
 #include "CudaHelpers.cuh"
+#include "Shader.hpp"
+#include "Camera.hpp"
 
 const uint WIDTH = 1024;
 const uint HEIGHT = 1024;
@@ -75,6 +76,10 @@ __global__ void updateParticles(float3 *d_instancePositions, float3 *d_instanceV
             1.0f);    // a
     }
 }
+
+Camera camera((float)WIDTH / HEIGHT, glm::vec3(0.0f, 0.0f, 1.1f));
+float lastMouseX = WIDTH / 2.0f;
+float lastMouseY = HEIGHT / 2.0f;
 
 int main()
 {
@@ -228,10 +233,13 @@ int main()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    while (!glfwWindowShouldClose(window))
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
+    for (uint frameCount; !glfwWindowShouldClose(window); ++frameCount)
     {
         glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Map instance VBOs to CUDA on device
         float3 *d_instancePositions;
@@ -263,6 +271,9 @@ int main()
 
         // Draw particles
         shader.use();
+        shader.setMatrix4f("view", camera.getViewMatrix());
+        shader.setMatrix4f("projection", camera.getProjectionMatrix());
+
         glBindVertexArray(particleVao);
         glDrawArraysInstanced(
             GL_POINTS,     // mode: type of primitives to render
@@ -296,23 +307,50 @@ void handleInput(GLFWwindow *window)
 {
     // exit program
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-    {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
-    }
+
+    // camera movement
+    float movementSpeed = 0.05f;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        camera.position += movementSpeed * camera.up;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        camera.position -= movementSpeed * camera.up;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        camera.position -= camera.right * movementSpeed;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        camera.position += camera.right * movementSpeed;
 }
 
 void mouse_callback(GLFWwindow *window, double xPos, double yPos)
 {
-    // TODO Implement
-    // std::cout << "Mouse position: (" << xPos << ", " << yPos << ")" << std::endl;
+    float xoffset = xPos - lastMouseX;
+    float yoffset = lastMouseY - yPos; // Reversed since y-coordinates go from bottom to top
+
+    lastMouseX = xPos;
+    lastMouseY = yPos;
+
+    float sensitivity = 0.05f;
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    camera.yaw += xoffset;
+    camera.pitch += yoffset;
+
+    if (camera.pitch > 89.0f)
+        camera.pitch = 89.0f;
+    if (camera.pitch < -89.0f)
+        camera.pitch = -89.0f;
+
+    camera.updateCameraVectors();
 }
 
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
 {
-    std::cout << "Scroll offset: (" << xOffset << ", " << yOffset << ")" << std::endl;
+    camera.position += (float)yOffset * camera.front;
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight)
 {
     glViewport(0, 0, newWidth, newHeight);
+    camera.aspectRatio = (float)newWidth / newHeight;
 }
