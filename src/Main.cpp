@@ -21,8 +21,15 @@ void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
 Camera camera((float)WIDTH / HEIGHT, glm::vec3(0.0f, 0.0f, 1.1f));
+
+// Controls
 float lastMouseX = WIDTH / 2.0f;
 float lastMouseY = HEIGHT / 2.0f;
+
+// Timing
+double lastTime = glfwGetTime();
+double currentTime;
+float deltaTime;
 
 int main()
 {
@@ -38,7 +45,10 @@ int main()
     }
 
     glfwMakeContextCurrent(window);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Capture cursor
+    // Capture cursor
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // Disable vsync
+    glfwSwapInterval(0);
 
     // set callback functions
     glfwSetCursorPosCallback(window, mouse_callback);
@@ -68,28 +78,24 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
-    double lastTime = glfwGetTime();
-    double currentTime;
-    int lastFrame = 0;
-    int currentFrame;
-
     for (int frameCount = 0; !glfwWindowShouldClose(window); ++frameCount)
     {
         // Calculate and print FPS
         currentTime = glfwGetTime();
-        currentFrame = frameCount;
-        if (currentTime - lastTime >= 1.0)
-        {
+        deltaTime = (float)(currentTime - lastTime);
+        lastTime = currentTime;
 
-            std::cout << "\rFPS: " << currentFrame - lastFrame << std::flush;
-            lastTime = currentTime;
-            lastFrame = currentFrame;
+        if (frameCount % 100 == 0)
+        {
+            const char *carriageReturn = "\r";
+            const char *clearLine = "\033[K";
+            std::cout << carriageReturn << "FPS: " << 1.0f / deltaTime << clearLine << std::flush;
         }
 
         glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        particleSystem.update();
+        particleSystem.update(deltaTime);
 
         // Draw particles
         shader.use();
@@ -115,15 +121,15 @@ void glfwErrorCallback(int error, const char *description)
 void handleInput(GLFWwindow *window)
 {
     // camera movement
-    float movementSpeed = 0.05f;
+    float movementSpeed = 3.0f;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.position += movementSpeed * camera.up;
+        camera.position += deltaTime * movementSpeed * camera.up;
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.position -= movementSpeed * camera.up;
+        camera.position -= deltaTime * movementSpeed * camera.up;
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.position -= camera.right * movementSpeed;
+        camera.position -= deltaTime * movementSpeed * camera.right;
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.position += camera.right * movementSpeed;
+        camera.position += deltaTime * movementSpeed * camera.right;
 }
 
 void mouse_callback(GLFWwindow *window, double xPos, double yPos)
@@ -134,12 +140,12 @@ void mouse_callback(GLFWwindow *window, double xPos, double yPos)
     lastMouseX = xPos;
     lastMouseY = yPos;
 
-    float sensitivity = 0.05f;
+    float sensitivity = 10.0f;
     xOffset *= sensitivity;
     yOffset *= sensitivity;
 
-    camera.yaw += xOffset;
-    camera.pitch += yOffset;
+    camera.yaw += deltaTime * xOffset;
+    camera.pitch += deltaTime * yOffset;
 
     if (camera.pitch > 89.0f)
         camera.pitch = 89.0f;
@@ -151,7 +157,8 @@ void mouse_callback(GLFWwindow *window, double xPos, double yPos)
 
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
 {
-    camera.position += (float)yOffset * camera.front;
+    float sensitivity = 200.0f;
+    camera.position += deltaTime * sensitivity * (float)yOffset * camera.front;
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight)

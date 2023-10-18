@@ -9,15 +9,15 @@
 #include "ParticleSystem.hpp"
 #include "CudaHelpers.cuh"
 
-__global__ void updateParticles(float3 *d_positions, float3 *d_velocities, float4 *d_colors, int numParticles)
+__global__ void updateParticles(float3 *d_positions, float3 *d_velocities, float4 *d_colors, int numParticles, float deltaTime)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < numParticles)
     {
         // Update position based on velocity
-        d_positions[i].x += d_velocities[i].x;
-        d_positions[i].y += d_velocities[i].y;
-        d_positions[i].z += d_velocities[i].z;
+        d_positions[i].x += deltaTime * d_velocities[i].x;
+        d_positions[i].y += deltaTime * d_velocities[i].y;
+        d_positions[i].z += deltaTime * d_velocities[i].z;
 
         // Bounce off walls
         if (d_positions[i].x > 1.0f)
@@ -105,7 +105,7 @@ void ParticleSystem::init(int numParticles)
     }
 
     // Particle velocities
-    float maxVelocity = 0.005f;
+    float maxVelocity = 0.05f;
     for (int i = 0; i < numParticles_; i++)
     {
         float3 velocity = make_float3(
@@ -199,7 +199,7 @@ void ParticleSystem::init(int numParticles)
     cudaGraphicsGLRegisterBuffer(&cuda_colors_vbo_resource_, instanceColorsVbo_, cudaGraphicsMapFlagsWriteDiscard);
 }
 
-void ParticleSystem::update()
+void ParticleSystem::update(float deltaTime)
 {
     // Map VBOs
     cudaGraphicsMapResources(1, &cuda_positions_vbo_resource_, 0);
@@ -212,7 +212,7 @@ void ParticleSystem::update()
     // Update particles
     int threadsPerBlock = 256;
     int blocksPerGrid = (numParticles_ + threadsPerBlock - 1) / threadsPerBlock;
-    updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_positions_, d_velocities_, d_colors_, numParticles_);
+    updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_positions_, d_velocities_, d_colors_, numParticles_, deltaTime);
     cudaError_t err_ = cudaDeviceSynchronize(); // Blocks execution until kernel is finished
     if (err_ != cudaSuccess)
     {

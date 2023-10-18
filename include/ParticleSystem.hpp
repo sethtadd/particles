@@ -18,7 +18,7 @@ public:
     ~ParticleSystem();
 
     void init(int numParticles);
-    void update();
+    void update(float deltaTime);
     void render();
 
 private:
