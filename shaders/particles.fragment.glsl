@@ -10,7 +10,5 @@ void main()
 {
     float distance = length(TexCoords - vec2(0.5, 0.5));
     float fade = 1.0 - smoothstep(0.0, 0.5, distance);
-    vec3 color = geomColor.rgb;
-    color *= fade;  // Darken color further away from center
-    FragColor = vec4(color, fade);
+    FragColor = vec4(geomColor * fade); // Darken color further away from center and fade to transparent
 }

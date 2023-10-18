@@ -6,6 +6,11 @@ __device__ float3 operator*(float3 a, float b)
     return make_float3(a.x * b, a.y * b, a.z * b);
 }
 
+__device__ float3 operator*(float b, float3 a)
+{
+    return make_float3(a.x * b, a.y * b, a.z * b);
+}
+
 __device__ float3 operator/(float3 a, float b)
 {
     return make_float3(a.x / b, a.y / b, a.z / b);
@@ -21,19 +26,15 @@ __device__ float3 operator-(float3 a, float3 b)
     return make_float3(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
-__device__ float norm(float2 a)
+__device__ float3 &operator+=(float3 &a, const float3 &b)
 {
-    return sqrtf(a.x * a.x + a.y * a.y);
+    a = a + b;
+    return a;
 }
 
 __device__ float norm(float3 a)
 {
     return sqrtf(a.x * a.x + a.y * a.y + a.z * a.z);
-}
-
-__device__ float norm(float4 a)
-{
-    return sqrtf(a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w);
 }
 
 __device__ float3 normalize(float3 a)

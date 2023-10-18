@@ -11,69 +11,50 @@
 
 __global__ void updateParticles(float3 *d_positions, float3 *d_velocities, float4 *d_colors, int numParticles, float deltaTime)
 {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < numParticles)
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    // Using a loop here allows us to use a single thread to update multiple particles, reducing redundant thread launches
+    for (int i = index; i < numParticles; i += stride)
     {
-        // Update position based on velocity
-        d_positions[i].x += deltaTime * d_velocities[i].x;
-        d_positions[i].y += deltaTime * d_velocities[i].y;
-        d_positions[i].z += deltaTime * d_velocities[i].z;
+        if (i < numParticles)
+        {
+            d_positions[i] += deltaTime * d_velocities[i];
 
-        // Bounce off walls
-        if (d_positions[i].x > 1.0f)
-        {
-            d_positions[i].x = 1.0f;
-            d_velocities[i].x *= -1.0f;
-        }
-        else if (d_positions[i].x < -1.0f)
-        {
-            d_positions[i].x = -1.0f;
-            d_velocities[i].x *= -1.0f;
-        }
+            // Bounce off walls
+            if (d_positions[i].x > 1.0f)
+            {
+                d_positions[i].x = 1.0f;
+                d_velocities[i].x *= -1.0f;
+            }
+            else if (d_positions[i].x < -1.0f)
+            {
+                d_positions[i].x = -1.0f;
+                d_velocities[i].x *= -1.0f;
+            }
 
-        if (d_positions[i].y > 1.0f)
-        {
-            d_positions[i].y = 1.0f;
-            d_velocities[i].y *= -1.0f;
-        }
-        else if (d_positions[i].y < -1.0f)
-        {
-            d_positions[i].y = -1.0f;
-            d_velocities[i].y *= -1.0f;
-        }
+            if (d_positions[i].y > 1.0f)
+            {
+                d_positions[i].y = 1.0f;
+                d_velocities[i].y *= -1.0f;
+            }
+            else if (d_positions[i].y < -1.0f)
+            {
+                d_positions[i].y = -1.0f;
+                d_velocities[i].y *= -1.0f;
+            }
 
-        if (d_positions[i].z > 1.0f)
-        {
-            d_positions[i].z = 1.0f;
-            d_velocities[i].z *= -1.0f;
+            if (d_positions[i].z > 1.0f)
+            {
+                d_positions[i].z = 1.0f;
+                d_velocities[i].z *= -1.0f;
+            }
+            else if (d_positions[i].z < -1.0f)
+            {
+                d_positions[i].z = -1.0f;
+                d_velocities[i].z *= -1.0f;
+            }
         }
-        else if (d_positions[i].z < -1.0f)
-        {
-            d_positions[i].z = -1.0f;
-            d_velocities[i].z *= -1.0f;
-        }
-
-        // Get min/max velocities
-        float maxVelocity = 0.0f;
-        float minVelocity = 0.0f;
-        for (int j = 0; j < numParticles; ++j)
-        {
-            float velocity = norm(d_velocities[j]);
-            if (velocity > maxVelocity)
-                maxVelocity = velocity;
-            else if (velocity < minVelocity)
-                minVelocity = velocity;
-        }
-
-        // Normalize velocity to [0, 1]
-        float v = (norm(d_velocities[i]) - minVelocity) / (maxVelocity - minVelocity);
-        v = v * v; // Square velocity so color is proportional to kinetic energy
-
-        d_colors[i] = make_float4(
-            v,        // r
-            0.5f,     // g
-            1.0f - v, // b
-            1.0f);    // a
     }
 }
 
@@ -105,7 +86,7 @@ void ParticleSystem::init(int numParticles)
     }
 
     // Particle velocities
-    float maxVelocity = 0.05f;
+    float maxVelocity = 0.2f;
     for (int i = 0; i < numParticles_; i++)
     {
         float3 velocity = make_float3(
@@ -118,11 +99,15 @@ void ParticleSystem::init(int numParticles)
     // Particle colors
     for (int i = 0; i < numParticles_; i++)
     {
+        float3 a = h_velocities_[i];
+        float aNorm = sqrtf(a.x * a.x + a.y * a.y + a.z * a.z);
+        float v = aNorm / maxVelocity;
+        v *= v; // Square velocity so color is proportional to kinetic energy
         float4 color = make_float4(
-            1.0f,  // r
-            1.0f,  // g
-            1.0f,  // b
-            1.0f); // a
+            v,        // r
+            1.0f,     // g
+            1.0f - v, // b
+            1.0f);    // a
         h_colors_.push_back(color);
     }
 
