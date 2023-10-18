@@ -3,7 +3,7 @@
 #include <glad/gl.h> // Include first to avoid errors
 #include <GLFW/glfw3.h>
 
-#include "ParticleSystem.cuh"
+#include "ParticleSystem.hpp"
 #include "Shader.hpp"
 #include "Camera.hpp"
 
@@ -128,18 +128,18 @@ void handleInput(GLFWwindow *window)
 
 void mouse_callback(GLFWwindow *window, double xPos, double yPos)
 {
-    float xoffset = xPos - lastMouseX;
-    float yoffset = lastMouseY - yPos; // Reversed since y-coordinates go from bottom to top
+    float xOffset = xPos - lastMouseX;
+    float yOffset = lastMouseY - yPos; // Reversed since y-coordinates go from bottom to top
 
     lastMouseX = xPos;
     lastMouseY = yPos;
 
     float sensitivity = 0.05f;
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
+    xOffset *= sensitivity;
+    yOffset *= sensitivity;
 
-    camera.yaw += xoffset;
-    camera.pitch += yoffset;
+    camera.yaw += xOffset;
+    camera.pitch += yOffset;
 
     if (camera.pitch > 89.0f)
         camera.pitch = 89.0f;

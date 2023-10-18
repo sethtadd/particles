@@ -1,11 +1,15 @@
-#ifndef PARTICLE_SYSTEM_CUH
-#define PARTICLE_SYSTEM_CUH
+#ifndef PARTICLE_SYSTEM_HPP
+#define PARTICLE_SYSTEM_HPP
 
 #include <vector>
 
 #include <glad/gl.h>
 
-__global__ void updateParticles(float3 *d_positions, float3 *d_velocities, float4 *d_colors, int numParticles);
+// Forward declarations of CUDA types to avoid including CUDA headers
+// This way we can include this header in pure C++ files
+struct float3;
+struct float4;
+struct cudaGraphicsResource;
 
 class ParticleSystem
 {
@@ -36,8 +40,6 @@ private:
     cudaGraphicsResource *cuda_positions_vbo_resource_;
     cudaGraphicsResource *cuda_velocities_vbo_resource_;
     cudaGraphicsResource *cuda_colors_vbo_resource_;
-
-    cudaError_t err_;
 };
 
-#endif // PARTICLE_SYSTEM_CUH
+#endif // PARTICLE_SYSTEM_HPP

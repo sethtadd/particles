@@ -6,7 +6,7 @@
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 
-#include "ParticleSystem.cuh"
+#include "ParticleSystem.hpp"
 #include "CudaHelpers.cuh"
 
 __global__ void updateParticles(float3 *d_positions, float3 *d_velocities, float4 *d_colors, int numParticles)
@@ -213,7 +213,7 @@ void ParticleSystem::update()
     int threadsPerBlock = 256;
     int blocksPerGrid = (numParticles_ + threadsPerBlock - 1) / threadsPerBlock;
     updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_positions_, d_velocities_, d_colors_, numParticles_);
-    err_ = cudaDeviceSynchronize(); // Blocks execution until kernel is finished
+    cudaError_t err_ = cudaDeviceSynchronize(); // Blocks execution until kernel is finished
     if (err_ != cudaSuccess)
     {
         std::cerr << "Failed to synchronize on the CUDA device (error code " << cudaGetErrorString(err_) << ")!" << std::endl;
