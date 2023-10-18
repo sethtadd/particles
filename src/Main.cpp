@@ -140,12 +140,12 @@ void mouse_callback(GLFWwindow *window, double xPos, double yPos)
     lastMouseX = xPos;
     lastMouseY = yPos;
 
-    float sensitivity = 10.0f;
+    float sensitivity = 0.03f;
     xOffset *= sensitivity;
     yOffset *= sensitivity;
 
-    camera.yaw += deltaTime * xOffset;
-    camera.pitch += deltaTime * yOffset;
+    camera.yaw += xOffset;
+    camera.pitch += yOffset;
 
     if (camera.pitch > 89.0f)
         camera.pitch = 89.0f;
@@ -157,8 +157,8 @@ void mouse_callback(GLFWwindow *window, double xPos, double yPos)
 
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset)
 {
-    float sensitivity = 200.0f;
-    camera.position += deltaTime * sensitivity * (float)yOffset * camera.front;
+    float sensitivity = 0.4f;
+    camera.position += sensitivity * (float)yOffset * camera.front;
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight)
