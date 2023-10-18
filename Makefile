@@ -6,7 +6,7 @@ NVCCFLAGS = -Iinclude -Iinclude/glad -diag-suppress 20012  # CUDA Compiler flags
 LDFLAGS = -lglfw -lGL -lcudart -L/usr/local/cuda/lib64  # Linker flags and required libraries
 BIN = bin/particles  # Binary output location
 CXX_OBJS = build/Shader.o build/Camera.o build/gl.o  # C++ Object files
-CU_OBJS = build/particles.cu.o build/CudaHelpers.cu.o  # CUDA Object files
+CU_OBJS = build/particles.cu.o build/ParticleSystem.cu.o build/CudaHelpers.cu.o  # CUDA Object files
 CU_DEVICE_OBJ = build/device_link.cu.o # CUDA Object file for device linking
 
 # Phony targets
@@ -37,6 +37,9 @@ build/gl.o: src/glad/gl.c include/glad/gl.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 build/CudaHelpers.cu.o: src/CudaHelpers.cu include/CudaHelpers.cuh
+	$(NVCC) $(NVCCFLAGS) --device-c -c $< -o $@
+
+build/ParticleSystem.cu.o: src/ParticleSystem.cu include/ParticleSystem.cuh
 	$(NVCC) $(NVCCFLAGS) --device-c -c $< -o $@
 
 # Run
