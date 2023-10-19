@@ -20,40 +20,67 @@ __global__ void updateParticles(float3 *d_positions, float3 *d_velocities, float
     {
         if (i < numParticles)
         {
+            // Apply gravity
+            d_velocities[i] += deltaTime * make_float3(0.0f, -0.5f, 0.0f);
+            // Update position
             d_positions[i] += deltaTime * d_velocities[i];
 
+            // Collision detection
+            float particleRadius = 0.01f;
+            for (int j = 0; j < numParticles; ++j)
+            {
+                if (i != j)
+                {
+                    float3 r = d_positions[i] - d_positions[j];
+                    float rNorm = norm(r);
+                    if (rNorm < particleRadius)
+                    {
+                        // Collision
+                        float3 v1 = d_velocities[i];
+                        float3 v2 = d_velocities[j];
+                        float3 v1New = v1 - 2 * v1 * r / (rNorm * rNorm) * r;
+                        float3 v2New = v2 - 2 * v2 * r / (rNorm * rNorm) * r;
+                        d_velocities[i] = v1New;
+                        d_velocities[j] = v2New;
+                        d_positions[i] += 1.01f * (particleRadius - rNorm) * r / rNorm;
+                        d_positions[j] -= 1.01f * (particleRadius - rNorm) * r / rNorm;
+                    }
+                }
+            }
+
             // Bounce off walls
+            float bounceFactor = 0.8f;
             if (d_positions[i].x > 1.0f)
             {
                 d_positions[i].x = 1.0f;
-                d_velocities[i].x *= -1.0f;
+                d_velocities[i].x *= -bounceFactor;
             }
             else if (d_positions[i].x < -1.0f)
             {
                 d_positions[i].x = -1.0f;
-                d_velocities[i].x *= -1.0f;
+                d_velocities[i].x *= -bounceFactor;
             }
 
             if (d_positions[i].y > 1.0f)
             {
                 d_positions[i].y = 1.0f;
-                d_velocities[i].y *= -1.0f;
+                d_velocities[i].y *= -bounceFactor;
             }
             else if (d_positions[i].y < -1.0f)
             {
                 d_positions[i].y = -1.0f;
-                d_velocities[i].y *= -1.0f;
+                d_velocities[i].y *= -bounceFactor;
             }
 
             if (d_positions[i].z > 1.0f)
             {
                 d_positions[i].z = 1.0f;
-                d_velocities[i].z *= -1.0f;
+                d_velocities[i].z *= -bounceFactor;
             }
             else if (d_positions[i].z < -1.0f)
             {
                 d_positions[i].z = -1.0f;
-                d_velocities[i].z *= -1.0f;
+                d_velocities[i].z *= -bounceFactor;
             }
         }
     }

@@ -32,6 +32,12 @@ __device__ float3 &operator+=(float3 &a, const float3 &b)
     return a;
 }
 
+__device__ float3 &operator-=(float3 &a, const float3 &b)
+{
+    a = a - b;
+    return a;
+}
+
 __device__ float norm(float3 a)
 {
     return sqrtf(a.x * a.x + a.y * a.y + a.z * a.z);
