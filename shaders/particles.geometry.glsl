@@ -10,11 +10,13 @@ out vec2 TexCoords;
 uniform mat4 view;
 uniform mat4 projection;
 
+uniform float particleRadius;
+
 void main() {
     geomColor = vertexColor[0];
 
     vec4 position = gl_in[0].gl_Position;
-    float size = 0.01;  // You can adjust the size of the quad
+    float size = particleRadius * 2.0f;  // You can adjust the size of the quad
 
     vec4 offset1 = vec4(-size / 2, -size / 2, 0.0, 0.0);
     vec4 offset2 = vec4(size / 2, -size / 2, 0.0, 0.0);

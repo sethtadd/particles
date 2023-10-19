@@ -5,6 +5,9 @@
 
 #include <glad/gl.h>
 
+#include "Camera.hpp"
+#include "Shader.hpp"
+
 // Forward declarations of CUDA types to avoid including CUDA headers
 // This way we can include this header in pure C++ files
 struct float3;
@@ -17,12 +20,13 @@ public:
     ParticleSystem();
     ~ParticleSystem();
 
-    void init(int numParticles);
+    void init(int numParticles, float particleRadius);
     void update(float deltaTime);
-    void render();
+    void render(Camera &camera);
 
 private:
     int numParticles_;
+    float particleRadius_;
     // h_ for host memory
     std::vector<float3> h_positions_;
     std::vector<float3> h_velocities_;
@@ -31,7 +35,8 @@ private:
     float3 *d_positions_;
     float3 *d_velocities_;
     float4 *d_colors_;
-    // vbo variables
+    // OpenGL resources
+    Shader particleShader_;
     GLuint particleVao_;
     GLuint instancePositionsVbo_;
     GLuint instanceVelocitiesVbo_;

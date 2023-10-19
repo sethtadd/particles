@@ -10,8 +10,9 @@
 
 #include "Shader.hpp"
 
-// Constructor
-Shader::Shader(const char *vertexPath, const char *geometryPath, const char *fragmentPath)
+Shader::Shader() {}
+
+void Shader::init(const char *vertexPath, const char *geometryPath, const char *fragmentPath)
 {
     std::ifstream vertexShaderFile;
     std::ifstream geometryShaderFile;

@@ -2,7 +2,7 @@
 CXX = g++  # C++ Compiler
 NVCC = nvcc  # CUDA Compiler
 CXXFLAGS = -Iinclude -Iinclude/glad -Wall  # C++ Compiler flags
-NVCCFLAGS = -Iinclude -Iinclude/glad  # CUDA Compiler flags
+NVCCFLAGS = -Iinclude -Iinclude/glad -diag-suppress 20012  # CUDA Compiler flags
 LDFLAGS = -lglfw -lGL -lcudart -L/usr/local/cuda/lib64  # Linker flags and required libraries
 BIN = bin/particles  # Binary output location
 CXX_OBJS = build/Main.o build/Shader.o build/Camera.o build/gl.o  # C++ Object files

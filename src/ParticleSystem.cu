@@ -6,6 +6,7 @@
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 
+#include "Shader.hpp"
 #include "ParticleSystem.hpp"
 #include "CudaHelpers.cuh"
 
@@ -71,28 +72,33 @@ ParticleSystem::~ParticleSystem()
     glDeleteBuffers(1, &instanceVelocitiesVbo_);
 }
 
-void ParticleSystem::init(int numParticles)
+void ParticleSystem::init(int numParticles, float particleRadius)
 {
     numParticles_ = numParticles;
+    particleRadius_ = particleRadius;
+
+    bool is3D = false;
+
+    particleShader_.init("shaders/particles.vertex.glsl", "shaders/particles.geometry.glsl", "shaders/particles.fragment.glsl");
 
     // Particle positions
     for (int i = 0; i < numParticles_; i++)
     {
         float3 position = make_float3(
-            2.0f * (float)rand() / RAND_MAX - 1.0f,  // x
-            2.0f * (float)rand() / RAND_MAX - 1.0f,  // y
-            2.0f * (float)rand() / RAND_MAX - 1.0f); // z
+            2.0f * (float)rand() / RAND_MAX - 1.0f,         // x
+            2.0f * (float)rand() / RAND_MAX - 1.0f,         // y
+            is3D * 2.0f * (float)rand() / RAND_MAX - 1.0f); // z
         h_positions_.push_back(position);
     }
 
     // Particle velocities
-    float maxVelocity = 0.2f;
+    float maxVelocity = 0.05f;
     for (int i = 0; i < numParticles_; i++)
     {
         float3 velocity = make_float3(
-            (2.0f * rand() / RAND_MAX - 1.0f) * maxVelocity,  // x
-            (2.0f * rand() / RAND_MAX - 1.0f) * maxVelocity,  // y
-            (2.0f * rand() / RAND_MAX - 1.0f) * maxVelocity); // z
+            (2.0f * rand() / RAND_MAX - 1.0f) * maxVelocity,         // x
+            (2.0f * rand() / RAND_MAX - 1.0f) * maxVelocity,         // y
+            is3D * (2.0f * rand() / RAND_MAX - 1.0f) * maxVelocity); // z
         h_velocities_.push_back(velocity);
     }
 
@@ -211,9 +217,16 @@ void ParticleSystem::update(float deltaTime)
     cudaGraphicsUnmapResources(1, &cuda_colors_vbo_resource_, 0);
 }
 
-void ParticleSystem::render()
+void ParticleSystem::render(Camera &camera)
 {
+    particleShader_.use();
+    particleShader_.setMatrix4f("view", camera.getViewMatrix());
+    particleShader_.setMatrix4f("projection", camera.getProjectionMatrix());
+    particleShader_.setFloat("particleRadius", particleRadius_);
+
     glBindVertexArray(particleVao_);
+    glDepthMask(GL_FALSE);
     glDrawArraysInstanced(GL_POINTS, 0, 1, numParticles_);
+    glDepthMask(GL_TRUE);
     glBindVertexArray(0);
 }

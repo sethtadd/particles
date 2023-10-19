@@ -30,6 +30,9 @@ float lastMouseY = HEIGHT / 2.0f;
 double lastTime = glfwGetTime();
 double currentTime;
 float deltaTime;
+float timeScale = 1.0f;
+
+const float PARTICLE_RADIUS = 0.01f;
 
 int main()
 {
@@ -67,10 +70,8 @@ int main()
 
     glViewport(0, 0, WIDTH, HEIGHT);
 
-    Shader shader("shaders/particles.vertex.glsl", "shaders/particles.geometry.glsl", "shaders/particles.fragment.glsl");
-
     ParticleSystem particleSystem = ParticleSystem();
-    particleSystem.init(10000);
+    particleSystem.init(5000, PARTICLE_RADIUS);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -84,7 +85,6 @@ int main()
         currentTime = glfwGetTime();
         deltaTime = (float)(currentTime - lastTime);
         lastTime = currentTime;
-
         if (frameCount % 100 == 0)
         {
             const char *carriageReturn = "\r";
@@ -95,14 +95,8 @@ int main()
         glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        particleSystem.update(deltaTime);
-
-        // Draw particles
-        shader.use();
-        shader.setMatrix4f("view", camera.getViewMatrix());
-        shader.setMatrix4f("projection", camera.getProjectionMatrix());
-
-        particleSystem.render();
+        particleSystem.update(deltaTime * timeScale);
+        particleSystem.render(camera);
 
         glfwPollEvents();
         handleInput(window);
@@ -172,4 +166,8 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     // Close window on escape key press
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        timeScale -= 0.1f;
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        timeScale += 0.1f;
 }

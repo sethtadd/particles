@@ -12,7 +12,9 @@
 class Shader
 {
 public:
-    Shader(const char *vertexPath, const char *geometryPath, const char *fragmentPath); // Constructor: Read in shader code files and build shader program
+    Shader();
+
+    void init(const char *vertexPath, const char *geometryPath, const char *fragmentPath); // Read in shader code files and build shader program
 
     void use(); // Tells the OpenGL state machine to use (this)Shader
 
