@@ -32,8 +32,6 @@ double currentTime;
 float deltaTime;
 float timeScale = 1.0f;
 
-const float PARTICLE_RADIUS = 0.01f;
-
 int main()
 {
     glfwSetErrorCallback(glfwErrorCallback);
@@ -66,15 +64,14 @@ int main()
     std::cout << "GLAD2 GL version: " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version) << std::endl;
     std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
     std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
-    std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
 
     glViewport(0, 0, WIDTH, HEIGHT);
 
     ParticleSystem particleSystem = ParticleSystem();
-    particleSystem.init(5000, PARTICLE_RADIUS);
+    particleSystem.init(1000000, 0.002f);
 
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -167,7 +164,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-        timeScale -= 0.1f;
+        timeScale *= 0.9f;
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-        timeScale += 0.1f;
+        timeScale *= 1.1f;
 }
