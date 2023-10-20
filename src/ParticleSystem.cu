@@ -18,10 +18,35 @@ __device__ float3 velocityField(float3 position)
     return velocity;
 }
 
+// Found these attractors at https://www.dynamicmath.xyz/strange-attractors/
+
+__device__ float3 aizawaAttractor(float3 position)
+{
+    position *= 4.0f; // Scale down to make attractor more visible
+
+    float a = 0.95f;
+    float b = 0.7f;
+    float c = 0.6f;
+    float d = 3.5f;
+    float e = 0.25f;
+    float f = 0.1f;
+
+    float x = position.x;
+    float y = position.y;
+    float z = position.z;
+
+    float3 velocity = make_float3(
+        (z - b) * x - d * y,
+        d * x + (z - b) * y,
+        c + a * z - (z * z * z) / 3.0f - (x * x + y * y) * (1.0f + e * z) + f * z * x * x * x);
+
+    return velocity;
+}
+
 __device__ float3 lorentzAttractor(float3 position)
 {
+    position.z += 0.3f;
     position *= 50.0f; // Scale down to make attractor more visible
-    position.z += 15.0f;
 
     float sigma = 10.0f;
     float rho = 28.0f;
@@ -33,7 +58,71 @@ __device__ float3 lorentzAttractor(float3 position)
         position.x * position.y - beta * position.z   // dz/dt
     );
 
-    return velocity / 100.0f; // Scale down to make attractor more visible
+    return velocity;
+}
+
+__device__ float3 halvorsenAttractor(float3 position)
+{
+    position *= 30.0f; // Scale down to make attractor more visible
+
+    float a = 1.4f;
+
+    float x = position.x;
+    float y = position.y;
+    float z = position.z;
+
+    float3 velocity = make_float3(
+        -a * x - 4.0f * y - 4.0f * z - y * y, // dx/dt
+        -a * y - 4.0f * z - 4.0f * x - z * z, // dy/dt
+        -a * z - 4.0f * x - 4.0f * y - x * x  // dz/dt
+    );
+
+    return velocity;
+}
+
+__device__ float3 rabinovichFabrikantAttractor(float3 position)
+{
+    position *= 5.0f; // Scale down to make attractor more visible
+
+    float a = 0.14f;
+    float b = 0.1f;
+
+    float x = position.x;
+    float y = position.y;
+    float z = position.z;
+
+    float3 velocity = make_float3(
+        y * (z - 1.0f + x * x) + b * x,        // dx/dt
+        x * (3.0f * z + 1.0f - x * x) + b * y, // dy/dt
+        -2.0f * z * (a + x * y)                // dz/dt
+    );
+
+    return velocity;
+}
+
+__device__ float3 threeScrollAttractor(float3 position)
+{
+    position.z += 0.5f;
+    position *= 400.0f; // Scale down to make attractor more visible
+
+    float a = 32.48f;
+    float b = 45.84f;
+    float c = 1.18f;
+    float d = 0.13f;
+    float e = 0.57f;
+    float f = 14.7f;
+
+    float x = position.x;
+    float y = position.y;
+    float z = position.z;
+
+    float3 velocity = make_float3(
+        a * (y - x) + d * x * z,  // dx/dt
+        b * x - x * z + f * y,    // dy/dt
+        c * z + x * y - e * x * x // dz/dt
+    );
+
+    return velocity;
 }
 
 __device__ float3 sprottAttractor(float3 position)
@@ -75,7 +164,7 @@ __global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_co
             d_ages[i] += deltaTime;
 
             // Update position based on attractor
-            float3 velocity = sprottAttractor(d_positions[i]);
+            float3 velocity = aizawaAttractor(d_positions[i]);
             velocity = normalize(velocity); // Quicker convergence to attractor
             d_positions[i] += deltaTime * velocity;
 
@@ -132,8 +221,8 @@ void ParticleSystem::init(int numParticles, float particleRadius)
     for (int i = 0; i < numParticles_; i++)
     {
         float3 position = make_float3(
-            2.0f * (float)rand() / RAND_MAX - 1.0f,         // x
-            2.0f * (float)rand() / RAND_MAX - 1.0f,         // y
+            2.0f * (float)rand() / RAND_MAX - 1.0f,  // x
+            2.0f * (float)rand() / RAND_MAX - 1.0f,  // y
             2.0f * (float)rand() / RAND_MAX - 1.0f); // z
         h_positions_.push_back(position);
     }
@@ -164,7 +253,7 @@ void ParticleSystem::init(int numParticles, float particleRadius)
         GL_ARRAY_BUFFER,                // target
         numParticles_ * sizeof(float3), // size
         h_positions_.data(),            // data
-        GL_DYNAMIC_DRAW);                // usage
+        GL_DYNAMIC_DRAW);               // usage
 
     // Position attribute
     glVertexAttribPointer(
@@ -184,7 +273,7 @@ void ParticleSystem::init(int numParticles, float particleRadius)
         GL_ARRAY_BUFFER,               // target
         numParticles_ * sizeof(float), // size
         h_ages_.data(),                // data
-        GL_DYNAMIC_DRAW);               // usage
+        GL_DYNAMIC_DRAW);              // usage
 
     // Age attribute
     glVertexAttribPointer(
@@ -204,7 +293,7 @@ void ParticleSystem::init(int numParticles, float particleRadius)
         GL_ARRAY_BUFFER,                // target
         numParticles_ * sizeof(float4), // size
         h_colors_.data(),               // data
-        GL_DYNAMIC_DRAW);                // usage
+        GL_DYNAMIC_DRAW);               // usage
 
     // Color attribute
     glVertexAttribPointer(
