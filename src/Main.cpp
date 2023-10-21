@@ -5,6 +5,7 @@
 
 #include "ParticleSystem.hpp"
 #include "Shader.hpp"
+#include "Framebuffer.hpp"
 #include "Camera.hpp"
 
 const int WIDTH = 1024;
@@ -19,6 +20,19 @@ void mouse_callback(GLFWwindow *window, double xPos, double yPos);              
 void scroll_callback(GLFWwindow *window, double xOffset, double yOffset);        // Zooming in/out
 void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight); // Handle window resizing
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+
+void renderQuad();
+float quadVertices[] = {
+    // Positions        // Texture Coords
+    -1.0f, 1.0f, 0.0f, 0.0f, 1.0f,  // Top left
+    -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, // Bottom left
+    1.0f, -1.0f, 0.0f, 1.0f, 0.0f,  // Bottom right
+
+    -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, // Top left
+    1.0f, -1.0f, 0.0f, 1.0f, 0.0f, // Bottom right
+    1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Top right
+};
+GLuint quadVAO, quadVBO;
 
 Camera camera((float)WIDTH / HEIGHT, glm::vec3(0.0f, 0.0f, 1.1f));
 
@@ -76,6 +90,10 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
+    Shader defaultShader;
+    defaultShader.init("shaders/default.vertex.glsl", "shaders/default.fragment.glsl");
+    Framebuffer framebuffer(WIDTH, HEIGHT);
+
     for (int frameCount = 0; !glfwWindowShouldClose(window); ++frameCount)
     {
         // Calculate and print FPS
@@ -89,16 +107,29 @@ int main()
             std::cout << carriageReturn << "FPS: " << 1.0f / deltaTime << clearLine << std::flush;
         }
 
+        // Render particles to framebuffer
+        framebuffer.bind();
         glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         particleSystem.update(deltaTime * timeScale);
         particleSystem.render(camera);
+        framebuffer.unbind();
+
+        // Render framebuffer to screen
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        defaultShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, framebuffer.texture_);
+        renderQuad();
 
         glfwPollEvents();
         handleInput(window);
         glfwSwapBuffers(window);
     }
+
+    glDeleteVertexArrays(1, &quadVAO);
+    glDeleteBuffers(1, &quadVBO);
 
     glfwTerminate();
     return 0;
@@ -164,7 +195,27 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-        timeScale *= 0.9f;
+        timeScale /= 1.1f;
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
         timeScale *= 1.1f;
+}
+
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 }

@@ -164,7 +164,7 @@ __global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_co
             d_ages[i] += deltaTime;
 
             // Update position based on attractor
-            float3 velocity = aizawaAttractor(d_positions[i]);
+            float3 velocity = halvorsenAttractor(d_positions[i]);
             velocity = normalize(velocity); // Quicker convergence to attractor
             d_positions[i] += deltaTime * velocity;
 

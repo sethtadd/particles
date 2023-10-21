@@ -14,7 +14,9 @@ class Shader
 public:
     Shader();
 
-    void init(const char *vertexPath, const char *geometryPath, const char *fragmentPath); // Read in shader code files and build shader program
+    // Reads in shader code files and builds shader program
+    void init(const char *vertexPath, const char *geometryPath, const char *fragmentPath);
+    void init(const char *vertexPath, const char *fragmentPath);
 
     void use(); // Tells the OpenGL state machine to use (this)Shader
 
