@@ -82,7 +82,7 @@ int main()
     glViewport(0, 0, WIDTH, HEIGHT);
 
     ParticleSystem particleSystem = ParticleSystem();
-    particleSystem.init(1000000, 0.002f);
+    particleSystem.init(1000000, 0.003f);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -90,9 +90,9 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
-    Shader defaultShader;
-    defaultShader.init("shaders/default.vertex.glsl", "shaders/default.fragment.glsl");
-    Framebuffer framebuffer(WIDTH, HEIGHT);
+    Shader hdrShader;
+    hdrShader.init("shaders/hdr.vertex.glsl", "shaders/hdr.fragment.glsl");
+    Framebuffer hdrFramebuffer(WIDTH, HEIGHT);
 
     for (int frameCount = 0; !glfwWindowShouldClose(window); ++frameCount)
     {
@@ -107,20 +107,21 @@ int main()
             std::cout << carriageReturn << "FPS: " << 1.0f / deltaTime << clearLine << std::flush;
         }
 
-        // Render particles to framebuffer
-        framebuffer.bind();
-        glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
+        // Render particles to hdrFramebuffer
+        hdrFramebuffer.bind();
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        // glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         particleSystem.update(deltaTime * timeScale);
         particleSystem.render(camera);
-        framebuffer.unbind();
+        hdrFramebuffer.unbind();
 
-        // Render framebuffer to screen
+        // Render hdrFramebuffer to screen
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        defaultShader.use();
+        hdrShader.use();
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, framebuffer.texture_);
+        glBindTexture(GL_TEXTURE_2D, hdrFramebuffer.texture_);
         renderQuad();
 
         glfwPollEvents();
