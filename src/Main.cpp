@@ -1,6 +1,9 @@
 #include <iostream>
+#include <thread>
+#include <chrono>
+#include <csignal>
 
-#include <glad/gl.h> // Include first to avoid errors
+#include <glad/gl.h> // Include before GLFW
 #include <GLFW/glfw3.h>
 
 #include "ParticleSystem.hpp"
@@ -8,20 +11,13 @@
 #include "Framebuffer.hpp"
 #include "Camera.hpp"
 
+#include "AudioPlayer.hpp"
+
 const int WIDTH = 1024;
 const int HEIGHT = 1024;
 
-void glfwErrorCallback(int error, const char *description);
+GLFWwindow *window;
 
-void handleInput(GLFWwindow *window);
-
-// Callback functions
-void mouse_callback(GLFWwindow *window, double xPos, double yPos);               // Mouse movement
-void scroll_callback(GLFWwindow *window, double xOffset, double yOffset);        // Zooming in/out
-void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight); // Handle window resizing
-void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
-
-void renderQuad();
 float quadVertices[] = {
     // Positions        // Texture Coords
     -1.0f, 1.0f, 0.0f, 0.0f, 1.0f,  // Top left
@@ -47,13 +43,42 @@ double currentTime;
 float deltaTime;
 float timeScale = 1.0f;
 
+void handleSignal(int signal)
+{
+    if (signal == SIGINT)
+    {
+        std::cout << std::endl
+                  << "Caught SIGINT, exiting..."
+                  << std::endl;
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
+}
+
+void glfwErrorCallback(int error, const char *description);
+
+void handleInput(GLFWwindow *window);
+
+// Callback functions
+void mouse_callback(GLFWwindow *window, double xPos, double yPos);               // Mouse movement
+void scroll_callback(GLFWwindow *window, double xOffset, double yOffset);        // Zooming in/out
+void framebuffer_size_callback(GLFWwindow *window, int newWidth, int newHeight); // Handle window resizing
+void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+
+void renderQuad();
+
 int main()
 {
+    std::signal(SIGINT, handleSignal);
+
+    AudioPlayer audioPlayer;
+    audioPlayer.init("audio/follow.wav");
+    std::thread audioThread(&AudioPlayer::play, &audioPlayer);
+
     glfwSetErrorCallback(glfwErrorCallback);
     if (!glfwInit())
         return -1;
 
-    GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "CUDA Particles", NULL, NULL);
+    window = glfwCreateWindow(WIDTH, HEIGHT, "CUDA Particles", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -111,7 +136,6 @@ int main()
         // Render particles to hdrFramebuffer
         hdrFramebuffer.bind();
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        // glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         particleSystem.update(deltaTime * timeScale, attractorIndex);
         particleSystem.render(camera);
@@ -130,10 +154,17 @@ int main()
         glfwSwapBuffers(window);
     }
 
+    // Stop audio thread
+    audioPlayer.stop();
+    if (audioThread.joinable())
+        audioThread.join();
+
+    // Clean up OpenGL resources
     glDeleteVertexArrays(1, &quadVAO);
     glDeleteBuffers(1, &quadVBO);
 
     glfwTerminate();
+
     return 0;
 }
 
