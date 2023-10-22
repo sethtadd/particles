@@ -1,5 +1,6 @@
 #include <vector>
 #include <iostream>
+#include <random>
 
 #include <glad/gl.h>
 
@@ -63,7 +64,7 @@ __device__ float3 lorentzAttractor(float3 position)
 
 __device__ float3 halvorsenAttractor(float3 position)
 {
-    position *= 30.0f; // Scale down to make attractor more visible
+    position *= 20.0f; // Scale down to make attractor more visible
 
     float a = 1.4f;
 
@@ -145,15 +146,15 @@ __device__ float3 sprottAttractor(float3 position)
     return velocity;
 }
 
-__global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_colors, int numParticles, float deltaTime, float particleLifetime)
+__global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_colors, int numParticles, float deltaTime, float particleLifetime, int attractorIndex)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
 
     // Initialize random number generator
     unsigned long long int clockCount = clock64();
-    curandState state;
-    curand_init(clockCount, index, 0, &state);
+    curandState rngState;
+    curand_init(clockCount, index, 0, &rngState);
 
     // Using a loop here allows us to use a single thread to update multiple particles, reducing redundant thread launches
     for (int i = index; i < numParticles; i += stride)
@@ -164,35 +165,44 @@ __global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_co
             d_ages[i] += deltaTime;
 
             // Update position based on attractor
-            float3 velocity = halvorsenAttractor(d_positions[i]);
+            float3 velocity;
+            switch (attractorIndex)
+            {
+            case 0:
+                velocity = sprottAttractor(d_positions[i]);
+                break;
+            case 1:
+                velocity = halvorsenAttractor(d_positions[i]);
+                break;
+            case 2:
+                velocity = aizawaAttractor(d_positions[i]);
+                break;
+            case 3:
+                velocity = threeScrollAttractor(d_positions[i]);
+                break;
+            case 4:
+            default: // added default case to handle unexpected index values
+                velocity = lorentzAttractor(d_positions[i]);
+                break;
+            }
+
             velocity = normalize(velocity); // Quicker convergence to attractor
             d_positions[i] += deltaTime * velocity;
 
-            // Respawn particles that die (age > maxAge)
-            if (d_ages[i] > particleLifetime)
+            // Respawn particles that die (age > maxAge) or travel too far from origin
+            if (d_ages[i] > particleLifetime || norm(d_positions[i]) > 4.0f)
             {
                 d_ages[i] = 0.0f;
                 d_positions[i] = make_float3(
-                    2.0f * curand_uniform(&state) - 1.0f,
-                    2.0f * curand_uniform(&state) - 1.0f,
-                    2.0f * curand_uniform(&state) - 1.0f);
-            }
-
-            // Respawn particles that go out of bounds
-            float maxBound = 1.0f;
-            if (abs(d_positions[i].x) > maxBound || abs(d_positions[i].y) > maxBound || abs(d_positions[i].z) > maxBound)
-            {
-                d_ages[i] = 0.0f;
-                d_positions[i] = make_float3(
-                    maxBound * (2.0f * curand_uniform(&state) - 1.0f),
-                    maxBound * (2.0f * curand_uniform(&state) - 1.0f),
-                    maxBound * (2.0f * curand_uniform(&state) - 1.0f));
+                    curand_normal(&rngState),
+                    curand_normal(&rngState),
+                    curand_normal(&rngState));
             }
 
             // Update color based on age
             float c = d_ages[i] / particleLifetime;
             c = sqrtf(c); // Emphasize younger particles
-            d_colors[i] = make_float4(c, 0.5f, 1.0f - c, sqrt(c));
+            d_colors[i] = make_float4(c, 0.5f, 1.0f - c, c);
         }
     }
 }
@@ -217,21 +227,28 @@ void ParticleSystem::init(int numParticles, float particleRadius)
 
     particleShader_.init("shaders/particles.vertex.glsl", "shaders/particles.geometry.glsl", "shaders/particles.fragment.glsl");
 
+    // Random number generator
+    std::random_device rngDevice;
+    std::mt19937 rng(rngDevice());
+    std::uniform_real_distribution<float> uniformDist(0.0f, 1.0f);
+    std::normal_distribution<float> normalDist(0.0f, 1.0f);
+
     // Particle positions
     for (int i = 0; i < numParticles_; i++)
     {
         float3 position = make_float3(
-            2.0f * (float)rand() / RAND_MAX - 1.0f,  // x
-            2.0f * (float)rand() / RAND_MAX - 1.0f,  // y
-            2.0f * (float)rand() / RAND_MAX - 1.0f); // z
+            normalDist(rng), // x
+            normalDist(rng), // y
+            normalDist(rng)  // z
+        );
         h_positions_.push_back(position);
     }
 
     // Particle ages
-    float maxAge = 20.0f;
+    particleLifetime_ = 20.0f;
     for (int i = 0; i < numParticles_; i++)
     {
-        float age = maxAge * (float)rand() / RAND_MAX;
+        float age = uniformDist(rng) * particleLifetime_;
         h_ages_.push_back(age);
     }
 
@@ -315,7 +332,7 @@ void ParticleSystem::init(int numParticles, float particleRadius)
     cudaGraphicsGLRegisterBuffer(&cuda_colors_vbo_resource_, instanceColorsVbo_, cudaGraphicsMapFlagsWriteDiscard);
 }
 
-void ParticleSystem::update(float deltaTime)
+void ParticleSystem::update(float deltaTime, int attractorIndex)
 {
     // Map VBOs
     cudaGraphicsMapResources(1, &cuda_positions_vbo_resource_, 0);
@@ -328,7 +345,7 @@ void ParticleSystem::update(float deltaTime)
     // Update particles
     int threadsPerBlock = 256;
     int blocksPerGrid = (numParticles_ + threadsPerBlock - 1) / threadsPerBlock;
-    updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_positions_, d_ages_, d_colors_, numParticles_, deltaTime, 20.0f);
+    updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_positions_, d_ages_, d_colors_, numParticles_, deltaTime, particleLifetime_, attractorIndex);
     cudaError_t err_ = cudaDeviceSynchronize(); // Blocks execution until kernel is finished
     if (err_ != cudaSuccess)
     {

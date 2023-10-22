@@ -21,11 +21,12 @@ public:
     ~ParticleSystem();
 
     void init(int numParticles, float particleRadius);
-    void update(float deltaTime);
+    void update(float deltaTime, int attractorIndex);
     void render(Camera &camera);
 
 private:
     int numParticles_;
+    float particleLifetime_;
     float particleRadius_;
     // h_ for host memory
     std::vector<float3> h_positions_;

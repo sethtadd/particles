@@ -39,6 +39,7 @@ Camera camera((float)WIDTH / HEIGHT, glm::vec3(0.0f, 0.0f, 1.1f));
 // Controls
 float lastMouseX = WIDTH / 2.0f;
 float lastMouseY = HEIGHT / 2.0f;
+int attractorIndex = 0;
 
 // Timing
 double lastTime = glfwGetTime();
@@ -82,7 +83,7 @@ int main()
     glViewport(0, 0, WIDTH, HEIGHT);
 
     ParticleSystem particleSystem = ParticleSystem();
-    particleSystem.init(1000000, 0.003f);
+    particleSystem.init(2000000, 0.005f);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -112,7 +113,7 @@ int main()
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         // glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        particleSystem.update(deltaTime * timeScale);
+        particleSystem.update(deltaTime * timeScale, attractorIndex);
         particleSystem.render(camera);
         hdrFramebuffer.unbind();
 
@@ -199,6 +200,16 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         timeScale /= 1.1f;
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
         timeScale *= 1.1f;
+    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
+        attractorIndex = 0;
+    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+        attractorIndex = 1;
+    if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
+        attractorIndex = 2;
+    if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
+        attractorIndex = 3;
+    if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS)
+        attractorIndex = 4;
 }
 
 void renderQuad()
