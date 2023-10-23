@@ -146,7 +146,7 @@ __device__ float3 sprottAttractor(float3 position)
     return velocity;
 }
 
-__global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_colors, int numParticles, float deltaTime, float particleLifetime, int attractorIndex)
+__global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_colors, int numParticles, float deltaTime, float particleLifetime, int attractorIndex, float *audioData, int audioDataSize)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
@@ -332,7 +332,7 @@ void ParticleSystem::init(int numParticles, float particleRadius)
     cudaGraphicsGLRegisterBuffer(&cuda_colors_vbo_resource_, instanceColorsVbo_, cudaGraphicsMapFlagsWriteDiscard);
 }
 
-void ParticleSystem::update(float deltaTime, int attractorIndex)
+void ParticleSystem::update(float deltaTime, int attractorIndex, float *audioData, int audioDataSize)
 {
     // Map VBOs
     cudaGraphicsMapResources(1, &cuda_positions_vbo_resource_, 0);
@@ -345,7 +345,16 @@ void ParticleSystem::update(float deltaTime, int attractorIndex)
     // Update particles
     int threadsPerBlock = 256;
     int blocksPerGrid = (numParticles_ + threadsPerBlock - 1) / threadsPerBlock;
-    updateParticles<<<blocksPerGrid, threadsPerBlock>>>(d_positions_, d_ages_, d_colors_, numParticles_, deltaTime, particleLifetime_, attractorIndex);
+    updateParticles<<<blocksPerGrid, threadsPerBlock>>>(
+        d_positions_,
+        d_ages_,
+        d_colors_,
+        numParticles_,
+        deltaTime,
+        particleLifetime_,
+        attractorIndex,
+        audioData,
+        audioDataSize);
     cudaError_t err_ = cudaDeviceSynchronize(); // Blocks execution until kernel is finished
     if (err_ != cudaSuccess)
     {

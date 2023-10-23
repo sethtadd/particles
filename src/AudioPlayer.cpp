@@ -64,11 +64,27 @@ void AudioPlayer::play()
         return;
     }
 
-    // Play the audio file
-    float buffer[framesPerBuffer_ * sfinfo_.channels];
-    while (!stopPlaying_ && (framesRead_ = sf_readf_float(file_, buffer, framesPerBuffer_)) > 0)
+    // Allocate buffers
+    buffer_ = new float[framesPerBuffer_ * sfinfo_.channels];
+    readBuffer_ = new float[framesPerBuffer_ * sfinfo_.channels];
+    writeBuffer_ = new float[framesPerBuffer_ * sfinfo_.channels];
+
+    // Audio loop
+    while (!stopPlaying_ && (framesRead_ = sf_readf_float(file_, buffer_, framesPerBuffer_)) > 0)
     {
-        err_ = Pa_WriteStream(stream_, buffer, framesRead_);
+        // Deep copy audio buffer to double buffers for external access
+        {
+            std::lock_guard<std::mutex> lock(bufferMutex_);
+            std::copy(buffer_, buffer_ + framesPerBuffer_ * sfinfo_.channels, writeBuffer_);
+
+            // Swap buffers
+            float *temp = readBuffer_;
+            readBuffer_ = writeBuffer_;
+            writeBuffer_ = temp;
+        }
+
+        // Write audio buffer to the audio stream
+        err_ = Pa_WriteStream(stream_, buffer_, framesRead_);
         if (err_ != paNoError)
         {
             std::cerr << "PortAudio stream writing error: " << Pa_GetErrorText(err_) << std::endl;
@@ -78,6 +94,14 @@ void AudioPlayer::play()
             return;
         }
     }
+
+    // Clean up
+    delete[] buffer_;
+    delete[] readBuffer_;
+    delete[] writeBuffer_;
+    buffer_ = nullptr;
+    readBuffer_ = nullptr;
+    writeBuffer_ = nullptr;
 }
 
 void AudioPlayer::stop()
@@ -102,4 +126,25 @@ void AudioPlayer::stop()
         sf_close(file_);
         return;
     }
+}
+
+bool AudioPlayer::isPlaying()
+{
+    return !stopPlaying_;
+}
+
+int AudioPlayer::getAudioBufferSize()
+{
+    return framesPerBuffer_ * sfinfo_.channels;
+}
+
+void AudioPlayer::copyAudioBufferData(float *dest, int size)
+{
+    // If audio is not playing, return zeros
+    if (stopPlaying_)
+        std::fill(dest, dest + size, 0.0f);
+
+    // Copy audio buffer to dest
+    std::lock_guard<std::mutex> lock(bufferMutex_);
+    std::copy(readBuffer_, readBuffer_ + size, dest);
 }

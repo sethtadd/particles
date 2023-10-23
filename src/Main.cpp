@@ -12,6 +12,7 @@
 #include "Camera.hpp"
 
 #include "AudioPlayer.hpp"
+#include "CudaUnifiedMemory.hpp"
 
 const int WIDTH = 1024;
 const int HEIGHT = 1024;
@@ -116,10 +117,18 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
+    // HDR post-processing
     Shader hdrShader;
     hdrShader.init("shaders/hdr.vertex.glsl", "shaders/hdr.fragment.glsl");
     Framebuffer hdrFramebuffer(WIDTH, HEIGHT);
 
+    // Unified memory for shared audio data (between CPU and GPU)
+    CudaUnifiedMemory audioDataUnifiedMemory(sizeof(float) * audioPlayer.getAudioBufferSize());
+    float *audioData = static_cast<float *>(audioDataUnifiedMemory.getPointer());
+
+    std::cout << "Starting main loop" << std::endl;
+
+    // Main loop
     for (int frameCount = 0; !glfwWindowShouldClose(window); ++frameCount)
     {
         // Calculate and print FPS
@@ -133,11 +142,20 @@ int main()
             std::cout << carriageReturn << "FPS: " << 1.0f / deltaTime << clearLine << std::flush;
         }
 
+        // Copy audio data to unified memory
+        if (audioPlayer.isPlaying())
+            audioPlayer.copyAudioBufferData(audioData, sizeof(float) * audioPlayer.getAudioBufferSize());
+
+        particleSystem.update(
+            deltaTime * timeScale,
+            attractorIndex,
+            audioData,
+            audioPlayer.getAudioBufferSize());
+
         // Render particles to hdrFramebuffer
         hdrFramebuffer.bind();
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        particleSystem.update(deltaTime * timeScale, attractorIndex);
         particleSystem.render(camera);
         hdrFramebuffer.unbind();
 

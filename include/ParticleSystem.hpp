@@ -21,7 +21,7 @@ public:
     ~ParticleSystem();
 
     void init(int numParticles, float particleRadius);
-    void update(float deltaTime, int attractorIndex);
+    void update(float deltaTime, int attractorIndex, float *audioData, int audioDataSize);
     void render(Camera &camera);
 
 private:
