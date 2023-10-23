@@ -95,6 +95,9 @@ void AudioPlayer::play()
         }
     }
 
+    // Indicate that audio is no longer playing
+    stopPlaying_ = true;
+
     // Clean up
     delete[] buffer_;
     delete[] readBuffer_;
@@ -142,7 +145,10 @@ void AudioPlayer::copyAudioBufferData(float *dest, int size)
 {
     // If audio is not playing, return zeros
     if (stopPlaying_)
+    {
         std::fill(dest, dest + size, 0.0f);
+        return;
+    }
 
     // Copy audio buffer to dest
     std::lock_guard<std::mutex> lock(bufferMutex_);

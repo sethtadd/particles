@@ -345,6 +345,8 @@ void ParticleSystem::update(float deltaTime, int attractorIndex, float *audioDat
     // Update particles
     int threadsPerBlock = 256;
     int blocksPerGrid = (numParticles_ + threadsPerBlock - 1) / threadsPerBlock;
+    // TODO - FFT audio preprocessing BEFORE passing to updateParticles kernel, don't do FFT preprocessing in each updateParticles kernel thread
+    // TODO - Audio should be passed to preprocessing kernel, FFT'd, then relevant values from FFT should be passed to updateParticles kernel
     updateParticles<<<blocksPerGrid, threadsPerBlock>>>(
         d_positions_,
         d_ages_,

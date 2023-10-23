@@ -126,8 +126,6 @@ int main()
     CudaUnifiedMemory audioDataUnifiedMemory(sizeof(float) * audioPlayer.getAudioBufferSize());
     float *audioData = static_cast<float *>(audioDataUnifiedMemory.getPointer());
 
-    std::cout << "Starting main loop" << std::endl;
-
     // Main loop
     for (int frameCount = 0; !glfwWindowShouldClose(window); ++frameCount)
     {
