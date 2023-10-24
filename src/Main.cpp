@@ -72,8 +72,9 @@ int main()
     std::signal(SIGINT, handleSignal);
 
     AudioPlayer audioPlayer;
-    audioPlayer.init("audio/follow.wav");
-    std::thread audioThread(&AudioPlayer::play, &audioPlayer);
+    bool audioPlayerInitialized = false;
+    if ((audioPlayerInitialized = audioPlayer.init("audio/follow.wav")))
+        audioPlayer.startPlay();
 
     glfwSetErrorCallback(glfwErrorCallback);
     if (!glfwInit())
@@ -171,9 +172,8 @@ int main()
     }
 
     // Stop audio thread
-    audioPlayer.stop();
-    if (audioThread.joinable())
-        audioThread.join();
+    if (audioPlayerInitialized)
+        audioPlayer.stop();
 
     // Clean up OpenGL resources
     glDeleteVertexArrays(1, &quadVAO);

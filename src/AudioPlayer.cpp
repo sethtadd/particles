@@ -20,14 +20,14 @@ AudioPlayer::~AudioPlayer()
     sf_close(file_);
 }
 
-void AudioPlayer::init(const char *filename)
+bool AudioPlayer::init(const char *filename)
 {
     // Open audio file
     file_ = sf_open(filename, SFM_READ, &sfinfo_);
     if (!file_)
     {
         std::cerr << "Could not open file " << filename << std::endl;
-        return;
+        return false;
     }
 
     // Initialize PortAudio
@@ -36,13 +36,26 @@ void AudioPlayer::init(const char *filename)
     {
         std::cerr << "PortAudio initialization error: " << Pa_GetErrorText(err_) << std::endl;
         sf_close(file_);
-        return;
+        return false;
     }
+
+    return true;
+}
+
+void AudioPlayer::startPlay()
+{
+    // If audio is already playing, return
+    if (playing_)
+        return;
+    else
+        playing_ = true;
+
+    // Start audio thread
+    playThread_ = std::thread(&AudioPlayer::play, this);
 }
 
 void AudioPlayer::play()
 {
-    std::lock_guard<std::mutex> lock(audioMutex_);
     // Open the default audio stream
     err_ = Pa_OpenDefaultStream(&stream_, 0, sfinfo_.channels, paFloat32, sfinfo_.samplerate, framesPerBuffer_, NULL, NULL);
     if (err_ != paNoError)
@@ -70,7 +83,7 @@ void AudioPlayer::play()
     writeBuffer_ = new float[framesPerBuffer_ * sfinfo_.channels];
 
     // Audio loop
-    while (!stopPlaying_ && (framesRead_ = sf_readf_float(file_, buffer_, framesPerBuffer_)) > 0)
+    while (playing_ && (framesRead_ = sf_readf_float(file_, buffer_, framesPerBuffer_)) > 0)
     {
         // Deep copy audio buffer to double buffers for external access
         {
@@ -96,7 +109,7 @@ void AudioPlayer::play()
     }
 
     // Indicate that audio is no longer playing
-    stopPlaying_ = true;
+    playing_ = false;
 
     // Clean up
     delete[] buffer_;
@@ -109,9 +122,12 @@ void AudioPlayer::play()
 
 void AudioPlayer::stop()
 {
-    // Set stopPlaying_ to true to escape the audio loop in AudioPlayer::play, which unlocks audioMutex_
-    stopPlaying_ = true;
-    std::lock_guard<std::mutex> lock(audioMutex_);
+    // Set playing_ to false to escape the audio loop in play()
+    playing_ = false;
+
+    // Join audio thread
+    if (playThread_.joinable())
+        playThread_.join();
 
     // Stop the audio stream
     err_ = Pa_StopStream(stream_);
@@ -133,7 +149,7 @@ void AudioPlayer::stop()
 
 bool AudioPlayer::isPlaying()
 {
-    return !stopPlaying_;
+    return playing_;
 }
 
 int AudioPlayer::getAudioBufferSize()
@@ -144,7 +160,7 @@ int AudioPlayer::getAudioBufferSize()
 void AudioPlayer::copyAudioBufferData(float *dest, int size)
 {
     // If audio is not playing, return zeros
-    if (stopPlaying_)
+    if (!playing_)
     {
         std::fill(dest, dest + size, 0.0f);
         return;

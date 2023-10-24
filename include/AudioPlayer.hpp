@@ -28,23 +28,28 @@ private:
     float *readBuffer_;
     float *writeBuffer_;
 
-    // audioMutex_ ensured the AudioPlayer::play and AudioPlayer::stop are thread-safe
-    std::mutex audioMutex_;
-    // Audio loop in AudioPlayer::play will stop when stopPlaying_ is set to true
-    std::atomic<bool> stopPlaying_{false};
+    // Audio loop in play() will stop when playing_ is set to false
+    std::atomic<bool> playing_{false};
+
+    // Audio loop in play() plays on its own thread
+    std::thread playThread_;
 
 public:
     AudioPlayer();
     ~AudioPlayer();
 
-    void init(const char *filename);
-    void play();
+    // init() will return false if there is an error
+    bool init(const char *filename);
+    void startPlay();
     void stop();
 
     bool isPlaying();
 
     int getAudioBufferSize();
     void copyAudioBufferData(float *dest, int size);
+
+private:
+    void play();
 };
 
 #endif // AUDIOPLAYER_HPP
