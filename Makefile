@@ -1,60 +1,94 @@
-# Variables
+# ------------- #
+# C++ VARIABLES #
+# ------------- #
+
 CXX = g++  # C++ Compiler
+CXX_FLAGS = -Iinclude -Iinclude/glad -Wall  # Compiler flags
+LD_FLAGS = -lglfw -lGL -lcudart -lcufft -L/usr/local/cuda/lib64 -lsndfile -lportaudio  # Linker flags and required libraries
+
+SRC_DIR=src
+OBJ_DIR=build
+BIN_DIR=bin
+
+TARGET = $(BIN_DIR)/particles  # Binary output location
+CXX_SRCS = $(wildcard $(SRC_DIR)/*.cpp)
+CXX_OBJS = $(CXX_SRCS:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+
+# -------------- #
+# CUDA VARIABLES #
+# -------------- #
+
 NVCC = nvcc  # CUDA Compiler
-CXXFLAGS = -Iinclude -Iinclude/glad -Wall  # C++ Compiler flags
-NVCCFLAGS = -Iinclude -Iinclude/glad -diag-suppress 20012  # CUDA Compiler flags
-LDFLAGS = -lglfw -lGL -lcudart -L/usr/local/cuda/lib64 -lsndfile -lportaudio  # Linker flags and required libraries
-BIN = bin/particles  # Binary output location
-CXX_OBJS = build/Main.o build/Shader.o build/Framebuffer.o build/Camera.o build/gl.o build/AudioPlayer.o  # C++ Object files
+NVCC_FLAGS = -Iinclude -Iinclude/glad -diag-suppress 20012  # CUDA Compiler flags
+
 CU_OBJS = build/ParticleSystem.cu.o build/CudaHelpers.cu.o build/CudaUnifiedMemory.cu.o  # CUDA Object files
 CU_DEVICE_OBJ = build/device_link.cu.o # CUDA Object file for device linking
+
+### ------------- ###
+### LINKING RULES ###
+### ------------- ###
+
+# Linking
+$(TARGET): build/gl.o $(CXX_OBJS) $(CU_OBJS) $(CU_DEVICE_OBJ)
+	@mkdir -p $(@D)
+	$(CXX) $^ -o $@ $(LD_FLAGS)
+
+# Device linking
+$(CU_DEVICE_OBJ): $(CU_OBJS)
+	$(NVCC) $(NVCC_FLAGS) --device-link $^ -o $@
+
+### ----------------- ###
+### COMPILE CPP FILES ###
+### ----------------- ###
+
+# Pattern rule to compile each source + header file pair
+build/%.o: src/%.cpp include/%.hpp
+	@mkdir -p $(@D)
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
+
+# Pattern rule to compile source files (without a matching header file)
+build/%.o: src/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
+
+### ------------ ###
+### COMPILE GLAD ###
+### ------------ ###
+
+build/gl.o: src/glad/gl.c include/glad/gl.h
+	@mkdir -p $(@D)
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
+
+### ---------------- ###
+### COMPILE CU FILES ###
+### ---------------- ###
+
+build/ParticleSystem.cu.o: src/ParticleSystem.cu include/ParticleSystem.hpp
+	@mkdir -p $(@D)
+	$(NVCC) $(NVCC_FLAGS) --device-c -c $< -o $@
+
+build/CudaUnifiedMemory.cu.o: src/CudaUnifiedMemory.cu include/CudaUnifiedMemory.hpp
+	@mkdir -p $(@D)
+	$(NVCC) $(NVCC_FLAGS) --device-c -c $< -o $@
+
+build/CudaHelpers.cu.o: src/CudaHelpers.cu include/CudaHelpers.cuh
+	@mkdir -p $(@D)
+	$(NVCC) $(NVCC_FLAGS) --device-c -c $< -o $@
+
+### ----- ###
+### OTHER ###
+### ----- ###
 
 # Phony targets
 .PHONY: all run clean
 
 # Default target
-all: $(BIN)
-
-# Linking
-$(BIN): $(CXX_OBJS) $(CU_OBJS) $(CU_DEVICE_OBJ)
-	$(CXX) $^ -o $@ $(LDFLAGS)
-
-# Device linking
-$(CU_DEVICE_OBJ): $(CU_OBJS)
-	$(NVCC) $(NVCCFLAGS) --device-link $^ -o $@
-
-# Compilation
-build/Main.o: src/Main.cpp
-	$(CXX) $(CXXFLAGS) -c $^ -o $@
-
-build/Shader.o: src/Shader.cpp include/Shader.hpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-build/Framebuffer.o: src/Framebuffer.cpp include/Framebuffer.hpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-build/Camera.o: src/Camera.cpp include/Camera.hpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-build/gl.o: src/glad/gl.c include/glad/gl.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-build/AudioPlayer.o: src/AudioPlayer.cpp include/AudioPlayer.hpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-build/ParticleSystem.cu.o: src/ParticleSystem.cu include/ParticleSystem.hpp
-	$(NVCC) $(NVCCFLAGS) --device-c -c $< -o $@
-
-build/CudaHelpers.cu.o: src/CudaHelpers.cu include/CudaHelpers.cuh
-	$(NVCC) $(NVCCFLAGS) --device-c -c $< -o $@
-
-build/CudaUnifiedMemory.cu.o: src/CudaUnifiedMemory.cu include/CudaUnifiedMemory.hpp
-	$(NVCC) $(NVCCFLAGS) --device-c -c $< -o $@
+all: $(TARGET)
 
 # Run
-run: $(BIN)
-	./$(BIN)
+run: $(TARGET)
+	./$(TARGET)
 
 # Clean
 clean:
-	rm -f build/*.o build/*.cu.o bin/*
+	rm -rf $(OBJ_DIR) $(BIN_DIR)
