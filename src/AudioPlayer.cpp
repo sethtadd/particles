@@ -20,8 +20,10 @@ AudioPlayer::~AudioPlayer()
     sf_close(file_);
 }
 
-bool AudioPlayer::init(const char *filename)
+bool AudioPlayer::init(const char *filename, int framesPerBuffer)
 {
+    framesPerBuffer_ = framesPerBuffer;
+
     // Open audio file
     file_ = sf_open(filename, SFM_READ, &sfinfo_);
     if (!file_)
@@ -86,11 +88,11 @@ void AudioPlayer::play()
     while (playing_ && (framesRead_ = sf_readf_float(file_, buffer_, framesPerBuffer_)) > 0)
     {
         // Deep copy audio buffer to double buffers for external access
+        std::copy(buffer_, buffer_ + framesPerBuffer_ * sfinfo_.channels, writeBuffer_);
+
+        // Swap buffers
         {
             std::lock_guard<std::mutex> lock(bufferMutex_);
-            std::copy(buffer_, buffer_ + framesPerBuffer_ * sfinfo_.channels, writeBuffer_);
-
-            // Swap buffers
             float *temp = readBuffer_;
             readBuffer_ = writeBuffer_;
             writeBuffer_ = temp;
@@ -169,4 +171,14 @@ void AudioPlayer::copyAudioBufferData(float *dest, int size)
     // Copy audio buffer to dest
     std::lock_guard<std::mutex> lock(bufferMutex_);
     std::copy(readBuffer_, readBuffer_ + size, dest);
+}
+
+bool AudioPlayer::isStereo()
+{
+    return sfinfo_.channels == 2;
+}
+
+float AudioPlayer::getSampleRate()
+{
+    return sfinfo_.samplerate;
 }

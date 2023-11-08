@@ -12,7 +12,7 @@
 class AudioPlayer
 {
 private:
-    const int framesPerBuffer_{256};
+    int framesPerBuffer_;
 
     const char *filename_;
     SNDFILE *file_;
@@ -39,7 +39,7 @@ public:
     ~AudioPlayer();
 
     // init() will return false if there is an error
-    bool init(const char *filename);
+    bool init(const char *filename, int framesPerBuffer = 512);
     void startPlay();
     void stop();
 
@@ -47,6 +47,9 @@ public:
 
     int getAudioBufferSize();
     void copyAudioBufferData(float *dest, int size);
+
+    bool isStereo();
+    float getSampleRate();
 
 private:
     void play();

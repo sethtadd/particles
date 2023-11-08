@@ -4,7 +4,7 @@
 
 CXX = g++  # C++ Compiler
 CXX_FLAGS = -Iinclude -Iinclude/glad -Wall  # Compiler flags
-LD_FLAGS = -lglfw -lGL -lcudart -lcufft -L/usr/local/cuda/lib64 -lsndfile -lportaudio  # Linker flags and required libraries
+LD_FLAGS = -lglfw -lGL -lfftw3f -lsndfile -lportaudio -lcudart -L/usr/local/cuda/lib64  # Linker flags and required libraries
 
 SRC_DIR=src
 OBJ_DIR=build
@@ -21,7 +21,7 @@ CXX_OBJS = $(CXX_SRCS:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 NVCC = nvcc  # CUDA Compiler
 NVCC_FLAGS = -Iinclude -Iinclude/glad -diag-suppress 20012  # CUDA Compiler flags
 
-CU_OBJS = build/ParticleSystem.cu.o build/CudaHelpers.cu.o build/CudaUnifiedMemory.cu.o  # CUDA Object files
+CU_OBJS = build/ParticleSystem.cu.o build/CudaHelpers.cu.o  # CUDA Object files
 CU_DEVICE_OBJ = build/device_link.cu.o # CUDA Object file for device linking
 
 ### ------------- ###
@@ -64,10 +64,6 @@ build/gl.o: src/glad/gl.c include/glad/gl.h
 ### ---------------- ###
 
 build/ParticleSystem.cu.o: src/ParticleSystem.cu include/ParticleSystem.hpp
-	@mkdir -p $(@D)
-	$(NVCC) $(NVCC_FLAGS) --device-c -c $< -o $@
-
-build/CudaUnifiedMemory.cu.o: src/CudaUnifiedMemory.cu include/CudaUnifiedMemory.hpp
 	@mkdir -p $(@D)
 	$(NVCC) $(NVCC_FLAGS) --device-c -c $< -o $@
 

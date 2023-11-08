@@ -10,9 +10,10 @@
 #include "Shader.hpp"
 #include "Framebuffer.hpp"
 #include "Camera.hpp"
+#include "SpectrumVisualizer.hpp"
 
 #include "AudioPlayer.hpp"
-#include "CudaUnifiedMemory.hpp"
+#include "AudioProcessor.hpp"
 
 const int WIDTH = 1024;
 const int HEIGHT = 1024;
@@ -71,11 +72,6 @@ int main()
 {
     std::signal(SIGINT, handleSignal);
 
-    AudioPlayer audioPlayer;
-    bool audioPlayerInitialized = false;
-    if ((audioPlayerInitialized = audioPlayer.init("audio/follow.wav")))
-        audioPlayer.startPlay();
-
     glfwSetErrorCallback(glfwErrorCallback);
     if (!glfwInit())
         return -1;
@@ -102,15 +98,7 @@ int main()
     // Initialize GLAD2
     int version = gladLoadGL(glfwGetProcAddress);
 
-    // Print version info
-    std::cout << "GLAD2 GL version: " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version) << std::endl;
-    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
-    std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
-
     glViewport(0, 0, WIDTH, HEIGHT);
-
-    ParticleSystem particleSystem = ParticleSystem();
-    particleSystem.init(2000000, 0.005f);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -118,14 +106,35 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
+    AudioPlayer audioPlayer;
+    bool audioPlayerInitialized = false;
+    if ((audioPlayerInitialized = audioPlayer.init("audio/akira.wav", 1024)))
+        audioPlayer.startPlay();
+
+    AudioProcessor audioProcessor(audioPlayer.isStereo(), audioPlayer.getSampleRate());
+
+    // Initialize particle system
+    ParticleSystem particleSystem = ParticleSystem();
+    particleSystem.init(500000, 0.005f);
+
     // HDR post-processing
     Shader hdrShader;
     hdrShader.init("shaders/hdr.vertex.glsl", "shaders/hdr.fragment.glsl");
     Framebuffer hdrFramebuffer(WIDTH, HEIGHT);
 
-    // Unified memory for shared audio data (between CPU and GPU)
-    CudaUnifiedMemory audioDataUnifiedMemory(sizeof(float) * audioPlayer.getAudioBufferSize());
-    float *audioData = static_cast<float *>(audioDataUnifiedMemory.getPointer());
+    Shader spectrumShader;
+    spectrumShader.init("shaders/spectrum.vertex.glsl", "shaders/spectrum.fragment.glsl");
+    SpectrumVisualizer spectrumVisualizer(spectrumShader);
+    spectrumVisualizer.setTransform(-1.0f, -1.0f, 2.0f, 1.0f);
+
+    // Print program info
+    std::cout << "----- OpenGL Info -----" << std::endl;
+    std::cout << "GLAD2 GL version: " << GLAD_VERSION_MAJOR(version) << "." << GLAD_VERSION_MINOR(version) << std::endl;
+    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
+    std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
+    std::cout << "----- Audio Info -----" << std::endl;
+    std::cout << "Is stereo: " << audioPlayer.isStereo() << std::endl;
+    std::cout << "Sample rate: " << audioPlayer.getSampleRate() << std::endl;
 
     // Main loop
     for (int frameCount = 0; !glfwWindowShouldClose(window); ++frameCount)
@@ -141,15 +150,23 @@ int main()
             std::cout << carriageReturn << "FPS: " << 1.0f / deltaTime << clearLine << std::flush;
         }
 
-        // Copy audio data to unified memory
+        // Update audio data
+        int numSamples = audioPlayer.getAudioBufferSize();
+        std::vector<float> audioSamples(numSamples);
         if (audioPlayer.isPlaying())
-            audioPlayer.copyAudioBufferData(audioData, sizeof(float) * audioPlayer.getAudioBufferSize());
+            audioPlayer.copyAudioBufferData(audioSamples.data(), audioSamples.size());
+
+        // Compute FFT
+        audioProcessor.updateAudioData(audioSamples);
+        audioProcessor.computeFft();
+        audioProcessor.process();
 
         particleSystem.update(
             deltaTime * timeScale,
             attractorIndex,
-            audioData,
-            audioPlayer.getAudioBufferSize());
+            audioProcessor.getLowFreq(),
+            audioProcessor.getMidFreq(),
+            audioProcessor.getHighFreq());
 
         // Render particles to hdrFramebuffer
         hdrFramebuffer.bind();
@@ -165,6 +182,9 @@ int main()
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, hdrFramebuffer.texture_);
         renderQuad();
+
+        spectrumVisualizer.setMagnitudes(audioProcessor.getProcessedData());
+        spectrumVisualizer.draw();
 
         glfwPollEvents();
         handleInput(window);
@@ -257,6 +277,8 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         attractorIndex = 3;
     if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS)
         attractorIndex = 4;
+    if (glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS)
+        attractorIndex = 5;
 }
 
 void renderQuad()

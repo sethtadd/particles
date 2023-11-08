@@ -12,21 +12,38 @@
 #include "ParticleSystem.hpp"
 #include "CudaHelpers.cuh"
 
-__device__ float3 velocityField(float3 position)
+// Found these attractors at https://www.dynamicmath.xyz/strange-attractors/
+
+__device__ float3 thomasAttractor(float3 position, float lowFreq, float midFreq)
 {
-    float3 velocity = position;
+    position *= 10.0f; // Scale down to make attractor more visible
+
+    float b1 = 0.1208186f; // complex shape
+    float b2 = 0.208186f;  // original value
+
+    float b = b2;
+
+    float s = 0.5f + lowFreq * lowFreq * 300.0f;
+
+    float x = position.x;
+    float y = position.y;
+    float z = position.z;
+
+    float dx = s * sinf(y) - b * x;
+    float dy = s * sinf(z) - b * y;
+    float dz = s * sinf(x) - b * z;
+
+    float3 velocity = make_float3(dx, dy, dz);
 
     return velocity;
 }
 
-// Found these attractors at https://www.dynamicmath.xyz/strange-attractors/
-
-__device__ float3 aizawaAttractor(float3 position)
+__device__ float3 aizawaAttractor(float3 position, float lowFreq, float midFreq)
 {
-    position *= 4.0f; // Scale down to make attractor more visible
+    position *= 4.0f / (1.0f + midFreq); // Scale down to make attractor more visible
 
     float a = 0.95f;
-    float b = 0.7f;
+    float b = 0.7f + lowFreq / 100.0f;
     float c = 0.6f;
     float d = 3.5f;
     float e = 0.25f;
@@ -36,10 +53,11 @@ __device__ float3 aizawaAttractor(float3 position)
     float y = position.y;
     float z = position.z;
 
-    float3 velocity = make_float3(
-        (z - b) * x - d * y,
-        d * x + (z - b) * y,
-        c + a * z - (z * z * z) / 3.0f - (x * x + y * y) * (1.0f + e * z) + f * z * x * x * x);
+    float dx = (z - b) * x - d * y;
+    float dy = d * x + (z - b) * y;
+    float dz = lowFreq * lowFreq * 400.0f + c + a * z - (z * z * z) / 3.0f - (x * x + y * y) * (1.0f + e * z) + f * z * x * x * x;
+
+    float3 velocity = make_float3(dx, dy, dz);
 
     return velocity;
 }
@@ -58,6 +76,29 @@ __device__ float3 lorentzAttractor(float3 position)
         position.x * (rho - position.z) - position.y, // dy/dt
         position.x * position.y - beta * position.z   // dz/dt
     );
+
+    return velocity;
+}
+
+__device__ float3 lorentz83Attractor(float3 position)
+{
+    position.z += 0.3f;
+    position *= 2.0f; // Scale down to make attractor more visible
+
+    float a = 0.95f;
+    float b = 7.91f;
+    float f = 4.83f;
+    float g = 4.66;
+
+    float x = position.x;
+    float y = position.y;
+    float z = position.z;
+
+    float dx = -a * x - y * y - z * z + a * f;
+    float dy = -y + x * y - b * x * z + g;
+    float dz = -z + b * x * y + x * z;
+
+    float3 velocity = make_float3(dx, dy, dz);
 
     return velocity;
 }
@@ -146,7 +187,7 @@ __device__ float3 sprottAttractor(float3 position)
     return velocity;
 }
 
-__global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_colors, int numParticles, float deltaTime, float particleLifetime, int attractorIndex, float *audioData, int audioDataSize)
+__global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_colors, int numParticles, float deltaTime, float particleLifetime, int attractorIndex, float lowFreq, float midFreq, float highFreq)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
@@ -175,18 +216,22 @@ __global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_co
                 velocity = halvorsenAttractor(d_positions[i]);
                 break;
             case 2:
-                velocity = aizawaAttractor(d_positions[i]);
+                velocity = aizawaAttractor(d_positions[i], lowFreq, midFreq);
                 break;
             case 3:
                 velocity = threeScrollAttractor(d_positions[i]);
                 break;
             case 4:
+                velocity = thomasAttractor(d_positions[i], lowFreq, midFreq);
+                break;
+            case 5:
             default: // added default case to handle unexpected index values
-                velocity = lorentzAttractor(d_positions[i]);
+                velocity = lorentz83Attractor(d_positions[i]);
                 break;
             }
 
             velocity = normalize(velocity); // Quicker convergence to attractor
+            velocity *= (highFreq + midFreq) * 5.0f;
             d_positions[i] += deltaTime * velocity;
 
             // Respawn particles that die (age > maxAge) or travel too far from origin
@@ -218,6 +263,7 @@ ParticleSystem::~ParticleSystem()
     glDeleteVertexArrays(1, &particleVao_);
     glDeleteBuffers(1, &instancePositionsVbo_);
     glDeleteBuffers(1, &instanceAgesVbo_);
+    glDeleteBuffers(1, &instanceColorsVbo_);
 }
 
 void ParticleSystem::init(int numParticles, float particleRadius)
@@ -245,7 +291,7 @@ void ParticleSystem::init(int numParticles, float particleRadius)
     }
 
     // Particle ages
-    particleLifetime_ = 20.0f;
+    particleLifetime_ = 10.0f;
     for (int i = 0; i < numParticles_; i++)
     {
         float age = uniformDist(rng) * particleLifetime_;
@@ -332,7 +378,7 @@ void ParticleSystem::init(int numParticles, float particleRadius)
     cudaGraphicsGLRegisterBuffer(&cuda_colors_vbo_resource_, instanceColorsVbo_, cudaGraphicsMapFlagsWriteDiscard);
 }
 
-void ParticleSystem::update(float deltaTime, int attractorIndex, float *audioData, int audioDataSize)
+void ParticleSystem::update(float deltaTime, int attractorIndex, float lowFreq, float midFreq, float highFreq)
 {
     // Map VBOs
     cudaGraphicsMapResources(1, &cuda_positions_vbo_resource_, 0);
@@ -345,8 +391,6 @@ void ParticleSystem::update(float deltaTime, int attractorIndex, float *audioDat
     // Update particles
     int threadsPerBlock = 256;
     int blocksPerGrid = (numParticles_ + threadsPerBlock - 1) / threadsPerBlock;
-    // TODO - FFT audio preprocessing BEFORE passing to updateParticles kernel, don't do FFT preprocessing in each updateParticles kernel thread
-    // TODO - Audio should be passed to preprocessing kernel, FFT'd, then relevant values from FFT should be passed to updateParticles kernel
     updateParticles<<<blocksPerGrid, threadsPerBlock>>>(
         d_positions_,
         d_ages_,
@@ -355,8 +399,9 @@ void ParticleSystem::update(float deltaTime, int attractorIndex, float *audioDat
         deltaTime,
         particleLifetime_,
         attractorIndex,
-        audioData,
-        audioDataSize);
+        lowFreq,
+        midFreq,
+        highFreq);
     cudaError_t err_ = cudaDeviceSynchronize(); // Blocks execution until kernel is finished
     if (err_ != cudaSuccess)
     {

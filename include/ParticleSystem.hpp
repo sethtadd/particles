@@ -10,6 +10,7 @@
 
 // Forward declarations of CUDA types to avoid including CUDA headers
 // This way we can include this header in pure C++ files
+struct float2;
 struct float3;
 struct float4;
 struct cudaGraphicsResource;
@@ -21,7 +22,7 @@ public:
     ~ParticleSystem();
 
     void init(int numParticles, float particleRadius);
-    void update(float deltaTime, int attractorIndex, float *audioData, int audioDataSize);
+    void update(float deltaTime, int attractorIndex, float lowFreq, float midFreq, float highFreq);
     void render(Camera &camera);
 
 private:

@@ -1,6 +1,6 @@
 # Chaotic Attractor Music Visualizer
 
-This README was updated on (MM/DD/YYY): 10/23/2023
+This README was updated on (MM/DD/YYY): 11/07/2023
 
 ## Description
 
@@ -13,13 +13,17 @@ The purpose of this project is to recreate [this music visualizer (CONTAINS FLAS
 - [x] ~~OpenGL particles~~
 - [x] ~~CUDA computing~~
 - [x] ~~Audio playback (and pipe audio data to CUDA kernel)~~
-- [ ] FFT preprocessing kernel
-- [ ] Audio visualization helpers (e.g. smoothing, beat detection?, etc.)
+- [x] ~~FFT preprocessing~~ Implemented using FFTW in `AudioProcessor` class
+- [x] ~~Audio visualization helpers (e.g. smoothing, etc.)~~ Implemented in `AudioProcessor` and `SpectrumVisualizer` classes
+- [ ] Color palette for particles based on audio spectrum
+- [ ] Automatic attractor switching
+- [ ] Automatic camera movement
 
 ### Extras
 
 - [ ] Post-processing effects (e.g. bloom/glare, chromatic aberration, depth of field, etc.)
 - [ ] Physics loop independent of rendering loop
+- [ ] FFT loop at multiple rate of audio playback loop (divide audio playback buffers into smaller chunks for FFT)
 - [ ] Refactor/reduce Makefile
 - [ ] UML diagram of class structure, UML diagram of CPU/GPU/IO data flow
 
@@ -37,6 +41,7 @@ The purpose of this project is to recreate [this music visualizer (CONTAINS FLAS
 - CUDA - *parallel computing platform*
 - PortAudio - *audio device I/O library*
 - libsndfile - *audio file I/O library*
+- FFTW - *fast Fourier transform library*
 
 ## How to Run
 
@@ -53,40 +58,3 @@ The purpose of this project is to recreate [this music visualizer (CONTAINS FLAS
 ## File Structure
 
 Building involves the `g++` and `nvcc` compilers. The `g++` compiler compiles `.cpp` files into object files and `nvcc` compiles `.cu` files into object files. Then `g++` links all the object files into a single executable.
-
-```bash
-.
-├── audio  # audio files ("follow.wav" not included in repo)
-│   └── follow.wav
-├── bin  # linked binary executable goes here
-├── build  # compiled object files go here
-├── include  # header files
-│   ├── AudioPlayer.hpp
-│   ├── Camera.hpp
-│   ├── CudaHelpers.cuh
-│   ├── CudaUnifiedMemory.hpp
-│   ├── Framebuffer.hpp
-│   ├── glad
-│   │   └── gl.h
-│   ├── ParticleSystem.hpp
-│   └── Shader.hpp
-├── Makefile
-├── README.md
-├── shaders  # OpenGL shader files
-│   ├── hdr.fragment.glsl
-│   ├── hdr.vertex.glsl
-│   ├── particles.fragment.glsl
-│   ├── particles.geometry.glsl
-│   └── particles.vertex.glsl
-└── src  # source files
-    ├── AudioPlayer.cpp
-    ├── Camera.cpp
-    ├── CudaHelpers.cu
-    ├── CudaUnifiedMemory.cu
-    ├── Framebuffer.cpp
-    ├── glad
-    │   └── gl.c
-    ├── Main.cpp
-    ├── ParticleSystem.cu
-    └── Shader.cpp
-```
