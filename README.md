@@ -15,7 +15,7 @@ The purpose of this project is to recreate [this music visualizer (CONTAINS FLAS
 - [x] ~~Audio playback (and pipe audio data to CUDA kernel)~~
 - [x] ~~FFT preprocessing~~ Implemented using FFTW in `AudioProcessor` class
 - [x] ~~Audio visualization helpers (e.g. smoothing, etc.)~~ Implemented in `AudioProcessor` and `SpectrumVisualizer` classes
-- [ ] Color palette for particles based on audio spectrum
+- [X] Color palette for particles based on audio spectrum
 - [ ] Automatic attractor switching
 - [ ] Automatic camera movement
 
@@ -31,8 +31,6 @@ The purpose of this project is to recreate [this music visualizer (CONTAINS FLAS
 
 ![A rendition of the Sprott attractor](./sprott.jpeg)
 ![A rendition of the three scroll attractor](./three_scroll.jpeg)
-<!-- <img src="./sprott.jpeg" width="400" height="400" alt="A rendition of the Sprott attractor"> -->
-<!-- <img src="./three_scroll.jpeg" width="400" height="400" alt="A rendition of the three scroll attractor"> -->
 
 ## Libraries/APIs Used (Dependencies)
 

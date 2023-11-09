@@ -14,14 +14,14 @@
 
 // Found these attractors at https://www.dynamicmath.xyz/strange-attractors/
 
-__device__ float3 thomasAttractor(float3 position, float lowFreq, float midFreq)
+__device__ float3 thomasAttractor(float3 position, float lowFreq, float midFreq, float highFreq)
 {
     position *= 10.0f; // Scale down to make attractor more visible
 
     float b1 = 0.1208186f; // complex shape
     float b2 = 0.208186f;  // original value
 
-    float b = b2;
+    float b = b2 * (1.0f + highFreq);
 
     float s = 0.5f + lowFreq * lowFreq * 300.0f;
 
@@ -103,11 +103,11 @@ __device__ float3 lorentz83Attractor(float3 position)
     return velocity;
 }
 
-__device__ float3 halvorsenAttractor(float3 position)
+__device__ float3 halvorsenAttractor(float3 position, float lowFreq, float midFreq, float highFreq)
 {
-    position *= 20.0f; // Scale down to make attractor more visible
+    position *= 20.0f / (1.0f + lowFreq * 10.0f); // Scale down to make attractor more visible
 
-    float a = 1.4f;
+    float a = 1.4f * (0.5f + lowFreq * 5.0f);
 
     float x = position.x;
     float y = position.y;
@@ -142,7 +142,7 @@ __device__ float3 rabinovichFabrikantAttractor(float3 position)
     return velocity;
 }
 
-__device__ float3 threeScrollAttractor(float3 position)
+__device__ float3 threeScrollAttractor(float3 position, float lowFreq, float midFreq, float highFreq)
 {
     position.z += 0.5f;
     position *= 400.0f; // Scale down to make attractor more visible
@@ -167,11 +167,11 @@ __device__ float3 threeScrollAttractor(float3 position)
     return velocity;
 }
 
-__device__ float3 sprottAttractor(float3 position)
+__device__ float3 sprottAttractor(float3 position, float lowFreq, float midFreq, float highFreq)
 {
-    position *= 3.0f; // Scale down to make attractor more visible
+    position *= 1.0f; // Scale down to make attractor more visible
 
-    float a = 2.07f;
+    float a = 2.07f + (1.0f + lowFreq * 50.0f);
     float b = 1.79f;
 
     float x = position.x;
@@ -187,7 +187,50 @@ __device__ float3 sprottAttractor(float3 position)
     return velocity;
 }
 
-__global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_colors, int numParticles, float deltaTime, float particleLifetime, int attractorIndex, float lowFreq, float midFreq, float highFreq)
+__device__ float3 hsv_to_rgb(float3 hsv)
+{
+    float h = fmodf(hsv.x, 360.0f); // Hue value should wrap around 360
+    float s = hsv.y;                // Saturation
+    float v = hsv.z;                // Value
+    float c = v * s;                // Chroma
+    float x = c * (1 - fabsf(fmodf(h / 60.0f, 2) - 1));
+    float m = v - c;
+    float3 rgb;
+
+    if (h >= 0 && h < 60)
+    {
+        rgb = make_float3(c, x, 0);
+    }
+    else if (h >= 60 && h < 120)
+    {
+        rgb = make_float3(x, c, 0);
+    }
+    else if (h >= 120 && h < 180)
+    {
+        rgb = make_float3(0, c, x);
+    }
+    else if (h >= 180 && h < 240)
+    {
+        rgb = make_float3(0, x, c);
+    }
+    else if (h >= 240 && h < 300)
+    {
+        rgb = make_float3(x, 0, c);
+    }
+    else
+    {
+        rgb = make_float3(c, 0, x);
+    }
+
+    // Add m to each component to match the final RGB value
+    rgb.x += m;
+    rgb.y += m;
+    rgb.z += m;
+
+    return rgb;
+}
+
+__global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_colors, int numParticles, float time, float deltaTime, float particleLifetime, int attractorIndex, float lowFreq, float midFreq, float highFreq)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
@@ -210,19 +253,19 @@ __global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_co
             switch (attractorIndex)
             {
             case 0:
-                velocity = sprottAttractor(d_positions[i]);
+                velocity = sprottAttractor(d_positions[i], lowFreq, midFreq, highFreq);
                 break;
             case 1:
-                velocity = halvorsenAttractor(d_positions[i]);
+                velocity = halvorsenAttractor(d_positions[i], lowFreq, midFreq, highFreq);
                 break;
             case 2:
                 velocity = aizawaAttractor(d_positions[i], lowFreq, midFreq);
                 break;
             case 3:
-                velocity = threeScrollAttractor(d_positions[i]);
+                velocity = threeScrollAttractor(d_positions[i], lowFreq, midFreq, highFreq);
                 break;
             case 4:
-                velocity = thomasAttractor(d_positions[i], lowFreq, midFreq);
+                velocity = thomasAttractor(d_positions[i], lowFreq, midFreq, highFreq);
                 break;
             case 5:
             default: // added default case to handle unexpected index values
@@ -246,8 +289,12 @@ __global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_co
 
             // Update color based on age
             float c = d_ages[i] / particleLifetime;
-            c = sqrtf(c); // Emphasize younger particles
-            d_colors[i] = make_float4(c, 0.5f, 1.0f - c, c);
+            float hue = time * 10.0f; // Change color over time
+            hue += ((midFreq + lowFreq) / 4.0f + 1) * 180.0f * c; // Change color based on age and frequency
+            float saturation = logf(10 * (lowFreq + highFreq) + 1.0f);
+            float3 hsv = make_float3(hue, saturation, 1.0f);
+            float3 rgb = hsv_to_rgb(hsv);
+            d_colors[i] = make_float4(rgb.x, rgb.y, rgb.z, c * c);
         }
     }
 }
@@ -378,7 +425,7 @@ void ParticleSystem::init(int numParticles, float particleRadius)
     cudaGraphicsGLRegisterBuffer(&cuda_colors_vbo_resource_, instanceColorsVbo_, cudaGraphicsMapFlagsWriteDiscard);
 }
 
-void ParticleSystem::update(float deltaTime, int attractorIndex, float lowFreq, float midFreq, float highFreq)
+void ParticleSystem::update(float time, float deltaTime, int attractorIndex, float lowFreq, float midFreq, float highFreq)
 {
     // Map VBOs
     cudaGraphicsMapResources(1, &cuda_positions_vbo_resource_, 0);
@@ -396,6 +443,7 @@ void ParticleSystem::update(float deltaTime, int attractorIndex, float lowFreq, 
         d_ages_,
         d_colors_,
         numParticles_,
+        time,
         deltaTime,
         particleLifetime_,
         attractorIndex,

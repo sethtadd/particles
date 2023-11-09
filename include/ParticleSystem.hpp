@@ -22,7 +22,7 @@ public:
     ~ParticleSystem();
 
     void init(int numParticles, float particleRadius);
-    void update(float deltaTime, int attractorIndex, float lowFreq, float midFreq, float highFreq);
+    void update(float time, float deltaTime, int attractorIndex, float lowFreq, float midFreq, float highFreq);
     void render(Camera &camera);
 
 private:

@@ -115,7 +115,7 @@ int main()
 
     // Initialize particle system
     ParticleSystem particleSystem = ParticleSystem();
-    particleSystem.init(500000, 0.005f);
+    particleSystem.init(2000000, 0.004f);
 
     // HDR post-processing
     Shader hdrShader;
@@ -162,6 +162,7 @@ int main()
         audioProcessor.process();
 
         particleSystem.update(
+            currentTime,
             deltaTime * timeScale,
             attractorIndex,
             audioProcessor.getLowFreq(),
