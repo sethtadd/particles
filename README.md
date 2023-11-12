@@ -16,8 +16,8 @@ The purpose of this project is to recreate [this music visualizer (CONTAINS FLAS
 - [x] ~~FFT preprocessing~~ Implemented using FFTW in `AudioProcessor` class
 - [x] ~~Audio visualization helpers (e.g. smoothing, etc.)~~ Implemented in `AudioProcessor` and `SpectrumVisualizer` classes
 - [X] Color palette for particles based on audio spectrum
+- [X] Automatic camera movement
 - [ ] Automatic attractor switching
-- [ ] Automatic camera movement
 
 ### Extras
 

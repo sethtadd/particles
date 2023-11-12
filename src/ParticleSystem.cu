@@ -253,7 +253,7 @@ __global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_co
             switch (attractorIndex)
             {
             case 0:
-                velocity = sprottAttractor(d_positions[i], lowFreq, midFreq, highFreq);
+                velocity = thomasAttractor(d_positions[i], lowFreq, midFreq, highFreq);
                 break;
             case 1:
                 velocity = halvorsenAttractor(d_positions[i], lowFreq, midFreq, highFreq);
@@ -265,7 +265,7 @@ __global__ void updateParticles(float3 *d_positions, float *d_ages, float4 *d_co
                 velocity = threeScrollAttractor(d_positions[i], lowFreq, midFreq, highFreq);
                 break;
             case 4:
-                velocity = thomasAttractor(d_positions[i], lowFreq, midFreq, highFreq);
+                velocity = sprottAttractor(d_positions[i], lowFreq, midFreq, highFreq);
                 break;
             case 5:
             default: // added default case to handle unexpected index values

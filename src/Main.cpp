@@ -125,7 +125,7 @@ int main()
     Shader spectrumShader;
     spectrumShader.init("shaders/spectrum.vertex.glsl", "shaders/spectrum.fragment.glsl");
     SpectrumVisualizer spectrumVisualizer(spectrumShader);
-    spectrumVisualizer.setTransform(-1.0f, -1.0f, 2.0f, 1.0f);
+    spectrumVisualizer.setTransform(-1.0f, -1.0f, 2.0f, 0.5f);
 
     // Print program info
     std::cout << "----- OpenGL Info -----" << std::endl;
@@ -168,6 +168,9 @@ int main()
             audioProcessor.getLowFreq(),
             audioProcessor.getMidFreq(),
             audioProcessor.getHighFreq());
+
+        // Update camera
+        camera.orbit(3.0f, 0.5f, currentTime);
 
         // Render particles to hdrFramebuffer
         hdrFramebuffer.bind();

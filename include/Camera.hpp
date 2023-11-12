@@ -1,5 +1,5 @@
-#ifndef CAMERA_H
-#define CAMERA_H
+#ifndef CAMERA_HPP
+#define CAMERA_HPP
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -26,6 +26,8 @@ public:
     glm::mat4 getViewMatrix();
     glm::mat4 getProjectionMatrix();
     void updateCameraVectors();
+
+    void orbit(float radius, float speed, float time);
 };
 
-#endif // CAMERA_H
+#endif // CAMERA_HPP

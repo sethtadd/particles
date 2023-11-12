@@ -21,11 +21,29 @@ glm::mat4 Camera::getProjectionMatrix()
 
 void Camera::updateCameraVectors()
 {
-    glm::vec3 front;
     front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
     front.y = sin(glm::radians(pitch));
     front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-    this->front = glm::normalize(front);
-    this->right = glm::normalize(glm::cross(this->front, this->worldUp));
-    this->up = glm::normalize(glm::cross(this->right, this->front));
+    front = glm::normalize(front);
+    right = glm::normalize(glm::cross(front, worldUp));
+    up = glm::normalize(glm::cross(right, front));
+}
+
+void Camera::orbit(float radius, float speed, float time)
+{
+    // Orbit around the origin
+    float amount = speed * time;
+    position.z = cosf(amount);
+    position.x = sinf(amount);
+    position.y = sinf(amount / 2.0f) / 2.0f;
+
+    float scaledRadius = radius * (1.0f + sinf(amount / 2.0f) / 2.0f);
+    position = glm::normalize(position) * scaledRadius;
+
+    // Look at the origin
+    front = glm::normalize(-position);
+    yaw = glm::degrees(atan2(front.z, front.x));
+    pitch = glm::degrees(asin(front.y));
+    right = glm::normalize(glm::cross(front, worldUp));
+    up = glm::normalize(glm::cross(right, front));
 }
